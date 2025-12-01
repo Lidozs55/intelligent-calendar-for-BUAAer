@@ -20,16 +20,12 @@ def get_entries():
 def add_entry():
     """添加新条目"""
     try:
-        print("[Entries Route] 接收到添加条目请求")
         data = request.get_json()
-        
-        print(f"[Entries Route] 条目数据: {data}")
         
         # 验证必填字段
         required_fields = ['title', 'entry_type', 'start_time', 'end_time']
         for field in required_fields:
             if field not in data:
-                print(f"[Entries Route] 缺少必填字段: {field}")
                 return jsonify({'error': f'缺少必填字段: {field}'}), 400
         
         # 创建新条目
@@ -43,7 +39,6 @@ def add_entry():
             # 直接将本地时间作为UTC时间处理
             return local_dt.replace(tzinfo=None)
         
-        print("[Entries Route] 创建新条目对象")
         new_entry = Entry(
             title=data['title'],
             description=data.get('description'),
@@ -53,19 +48,11 @@ def add_entry():
             color=data.get('color')
         )
         
-        print(f"[Entries Route] 新条目对象: {new_entry}")
-        
-        print("[Entries Route] 添加到数据库会话")
         db.session.add(new_entry)
-        print("[Entries Route] 提交到数据库")
         db.session.commit()
-        print("[Entries Route] 提交到数据库成功")
         
-        result = {'entry': new_entry.to_dict()}
-        print(f"[Entries Route] 返回结果: {result}")
-        return jsonify(result), 201
+        return jsonify({'entry': new_entry.to_dict()}), 201
     except Exception as e:
-        print(f"[Entries Route] 添加条目失败: {e}")
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
