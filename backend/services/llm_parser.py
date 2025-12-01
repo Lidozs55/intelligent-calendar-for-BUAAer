@@ -1,16 +1,14 @@
-from openai import OpenAI
 import os
 import json
 import requests
+from dashscope import Generation
+import dashscope
 
 class LLMParser:
     def __init__(self):
         # 初始化阿里云百炼大模型配置
         self.api_key = os.getenv("DASHSCOPE_API_KEY")
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
+        dashscope.base_http_api_url = 'https://dashscope.aliyuncs.com/api/v1'
     
     def _get_occupied_slots(self, start_date):
         """获取未来7天已占用时段"""
@@ -31,7 +29,6 @@ class LLMParser:
             
             return occupied_slots
         except Exception as e:
-            print(f"获取已占用时段失败: {e}")
             return []
     
     def parse_text(self, text, user_preferences=None, start_date=None):
@@ -90,17 +87,22 @@ class LLMParser:
         try:
             # 调用大语言模型API
             messages = [{"role": "user", "content": prompt}]
-            completion = self.client.chat.completions.create(
-                model="qwen-flash", 
+            response = Generation.call(
+                api_key=self.api_key,
+                model="qwen-plus",
                 messages=messages,
-                stream=False
+                result_format="message",
+                enable_thinking=False,
             )
             
             # 解析响应
-            response_content = completion.choices[0].message.content
-            return response_content
+            if response.status_code == 200:
+                response_content = response.output.choices[0].message.content
+                print(f"[LLM Parser] 响应内容: {response_content}")
+                return response_content
+            else:
+                return None
         except Exception as e:
-            print(f"LLM解析错误: {e}")
             return None
     
     def parse_voice(self, voice_text, user_preferences=None, start_date=None):

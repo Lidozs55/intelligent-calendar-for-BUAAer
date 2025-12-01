@@ -21,18 +21,120 @@ llm_parser = LLMParser()
 @llm_bp.route('/parse/text', methods=['POST'])
 def parse_text():
     """解析文本内容"""
+    print("[LLM Route] 接收到文本解析请求")
     data = request.get_json()
     text = data.get('text')
     user_preferences = data.get('user_preferences')
     start_date = data.get('start_date')
     
+    print(f"[LLM Route] 文本内容: {text[:50]}...")
+    print(f"[LLM Route] 用户偏好: {user_preferences}")
+    print(f"[LLM Route] 开始日期: {start_date}")
+    
     if not text:
+        print("[LLM Route] 缺少文本内容，返回400错误")
         return jsonify({'message': '缺少文本内容'}), 400
     
+    print("[LLM Route] 调用LLM解析器")
     result = llm_parser.parse_text(text, user_preferences, start_date)
+    
     if result:
-        return jsonify({'result': result}), 200
+        print("[LLM Route] LLM解析成功")
+        
+        # 直接处理LLM返回的结果，创建条目和任务
+        import json
+        from datetime import datetime
+        
+        try:
+            # 解析LLM返回的JSON
+            llm_data = json.loads(result)
+            print(f"[LLM Route] 解析LLM返回的JSON: {llm_data}")
+            
+            # 创建任务
+            if llm_data.get('tasks'):
+                print(f"[LLM Route] 开始创建任务，共 {len(llm_data['tasks'])} 个")
+                for task in llm_data['tasks']:
+                    print(f"[LLM Route] 创建任务: {task}")
+                    # 调用tasksAPI创建任务
+                    task_data = {
+                        'title': task['name'],
+                        'description': '',
+                        'task_type': 'homework',
+                        'deadline': task['deadline'].replace(' ', 'T') + ':00' if task.get('deadline') else None,
+                        'estimated_time': task['estimated_time'] or 0,
+                        'priority': 'medium',
+                        'completed': False
+                    }
+                    
+                    # 直接调用Task模型创建任务
+                    from models.task import Task
+                    
+                    def parse_datetime(date_str):
+                        if date_str:
+                            if len(date_str) == 16:  # 格式为 YYYY-MM-DDTHH:MM
+                                date_str += ':00'  # 添加秒
+                            return datetime.fromisoformat(date_str)
+                        return None
+                    
+                    new_task = Task(
+                        title=task_data['title'],
+                        description=task_data.get('description', ''),
+                        task_type=task_data.get('task_type', 'homework'),
+                        deadline=parse_datetime(task_data.get('deadline')),
+                        priority=task_data.get('priority', 'medium')
+                    )
+                    
+                    from extensions import db
+                    db.session.add(new_task)
+                    db.session.commit()
+                    print(f"[LLM Route] 任务创建成功: {new_task}")
+            
+            # 创建条目
+            if llm_data.get('entries'):
+                print(f"[LLM Route] 开始创建条目，共 {len(llm_data['entries'])} 个")
+                for entry in llm_data['entries']:
+                    print(f"[LLM Route] 创建条目: {entry}")
+                    # 调用entriesAPI创建条目
+                    entry_data = {
+                        'title': entry['title'],
+                        'description': '',
+                        'entry_type': entry['entry_type'] or 'meeting',
+                        'start_time': entry['start_time'].replace(' ', 'T') + ':00',
+                        'end_time': entry['end_time'].replace(' ', 'T') + ':00'
+                    }
+                    
+                    # 直接调用Entry模型创建条目
+                    from models.entry import Entry
+                    
+                    def parse_datetime_local(date_str):
+                        if len(date_str) == 16:  # 格式为 YYYY-MM-DDTHH:MM
+                            date_str += ':00'  # 添加秒
+                        local_dt = datetime.fromisoformat(date_str)
+                        return local_dt.replace(tzinfo=None)
+                    
+                    new_entry = Entry(
+                        title=entry_data['title'],
+                        description=entry_data.get('description'),
+                        entry_type=entry_data['entry_type'],
+                        start_time=parse_datetime_local(entry_data['start_time']),
+                        end_time=parse_datetime_local(entry_data['end_time']),
+                        color=entry_data.get('color')
+                    )
+                    
+                    from extensions import db
+                    db.session.add(new_entry)
+                    db.session.commit()
+                    print(f"[LLM Route] 条目创建成功: {new_entry}")
+            
+            print("[LLM Route] 所有条目和任务创建成功")
+            return jsonify({'result': result, 'message': '解析成功，已创建条目和任务'}), 200
+        except Exception as e:
+            print(f"[LLM Route] 处理LLM结果失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'result': result, 'message': '解析成功，但创建条目和任务失败'}), 500
     else:
+        print("[LLM Route] LLM解析失败，返回500错误")
         return jsonify({'message': '解析失败'}), 500
 
 

@@ -41,7 +41,15 @@ def add_task():
     """添加任务"""
     from datetime import datetime
     
+    print("[Tasks Route] 接收到添加任务请求")
     data = request.get_json()
+    
+    print(f"[Tasks Route] 任务数据: {data}")
+    
+    # 验证必填字段
+    if 'title' not in data:
+        print("[Tasks Route] 缺少必填字段: title")
+        return jsonify({'error': '缺少必填字段: title'}), 400
     
     # 转换datetime-local格式的字符串为datetime对象
     def parse_datetime(date_str):
@@ -50,10 +58,10 @@ def add_task():
             if len(date_str) == 16:  # 格式为 YYYY-MM-DDTHH:MM
                 date_str += ':00'  # 添加秒
             # 直接将datetime-local格式解析为UTC时间，不进行时区转换
-            # 因为前端已经将UTC时间转换为本地时间显示，所以保存时需要直接存储
             return datetime.fromisoformat(date_str)
         return None
     
+    print("[Tasks Route] 创建新任务对象")
     new_task = Task(
         title=data['title'],
         description=data.get('description', ''),
@@ -62,11 +70,16 @@ def add_task():
         priority=data.get('priority', 'medium')
     )
     
+    print(f"[Tasks Route] 新任务对象: {new_task}")
+    
+    print("[Tasks Route] 添加到数据库会话")
     db.session.add(new_task)
+    print("[Tasks Route] 提交到数据库")
     db.session.commit()
+    print("[Tasks Route] 提交到数据库成功")
     
     # 返回完整的任务信息
-    return jsonify({
+    result = {
         'message': '任务添加成功',
         'task': {
             'id': new_task.id,
@@ -77,7 +90,9 @@ def add_task():
             'priority': new_task.priority,
             'completed': new_task.completed
         }
-    }), 201
+    }
+    print(f"[Tasks Route] 返回结果: {result}")
+    return jsonify(result), 201
 
 
 @tasks_bp.route('/<int:task_id>', methods=['PUT'])

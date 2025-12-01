@@ -78,34 +78,42 @@
     <!-- 解析结果预览 -->
     <div v-else-if="parsedResult" class="parse-preview">
       <h3>解析结果预览</h3>
-      <div class="parse-details">
-        <div class="parse-item">
-          <span class="label">任务类型：</span>
-          <span class="value">{{ parsedResult.task_type }}</span>
-        </div>
-        <div class="parse-item">
-          <span class="label">任务标题：</span>
-          <span class="value">{{ parsedResult.title }}</span>
-        </div>
-        <div class="parse-item">
-          <span class="label">任务描述：</span>
-          <span class="value">{{ parsedResult.description || '无' }}</span>
-        </div>
-        <div class="parse-item">
-          <span class="label">截止日期：</span>
-          <span class="value">{{ parsedResult.deadline || '无' }}</span>
-        </div>
-        <div class="parse-item">
-          <span class="label">预估耗时：</span>
-          <span class="value">{{ parsedResult.estimated_time || '无' }} 分钟</span>
-        </div>
-        <div class="parse-item">
-          <span class="label">优先级：</span>
-          <span class="value">{{ parsedResult.priority }}</span>
+      
+      <!-- 任务列表预览 -->
+      <div v-if="parsedResult.tasks && parsedResult.tasks.length > 0" class="preview-section">
+        <h4>识别到的任务 ({{ parsedResult.tasks.length }})</h4>
+        <div class="preview-list">
+          <div v-for="(task, index) in parsedResult.tasks" :key="index" class="preview-item">
+            <div class="preview-item-header">
+              <span class="preview-item-title">{{ task.name }}</span>
+            </div>
+            <div class="preview-item-details">
+              <span class="preview-item-detail">截止时间: {{ task.deadline || '无' }}</span>
+              <span class="preview-item-detail">预估耗时: {{ task.estimated_time || 0 }} 分钟</span>
+            </div>
+          </div>
         </div>
       </div>
+      
+      <!-- 条目列表预览 -->
+      <div v-if="parsedResult.entries && parsedResult.entries.length > 0" class="preview-section">
+        <h4>识别到的日程 ({{ parsedResult.entries.length }})</h4>
+        <div class="preview-list">
+          <div v-for="(entry, index) in parsedResult.entries" :key="index" class="preview-item">
+            <div class="preview-item-header">
+              <span class="preview-item-title">{{ entry.title }}</span>
+              <span class="preview-item-type">{{ entry.entry_type }}</span>
+            </div>
+            <div class="preview-item-details">
+              <span class="preview-item-detail">开始时间: {{ entry.start_time || '无' }}</span>
+              <span class="preview-item-detail">结束时间: {{ entry.end_time || '无' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div class="parse-actions">
-        <button @click="confirmParse" class="confirm-btn">确认并创建任务</button>
+        <button @click="confirmParse" class="confirm-btn">确认并创建</button>
         <button @click="clearParse" class="clear-btn">重新解析</button>
       </div>
     </div>
@@ -114,7 +122,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { llmAPI, tasksAPI } from '../services/api'
+import { llmAPI, tasksAPI, entriesAPI } from '../services/api'
 import { useUserStore, useClipboardStore } from '../store'
 
 const inputText = ref('')
@@ -252,8 +260,8 @@ const processImageFile = async (file) => {
     if (response && response.text) {
       // 将识别结果填充到输入框
       inputText.value = response.text
-      // 调用LLM进行解析
-      await parseWithLLM()
+      // 不自动调用LLM，等待用户点击提交按钮
+      console.log('OCR识别结果已填充到输入框，等待用户提交')
     }
   } catch (error) {
     console.error('图片识别失败:', error)
@@ -264,13 +272,9 @@ const processImageFile = async (file) => {
 }
 
 // 处理输入变化
-const handleInput = async () => {
-  // 这里可以添加实时解析逻辑
+const handleInput = () => {
+  // 仅记录输入变化，不自动调用LLM
   console.log('输入变化:', inputText.value)
-  // 当文本长度超过5个字符时，调用LLM进行解析
-  if (inputText.value.trim().length > 5) {
-    await parseWithLLM()
-  }
 }
 
 // 使用大语言模型解析文本
@@ -316,13 +320,11 @@ onMounted(() => {
 })
 
 // 提交输入
-const submitInput = () => {
-  if (inputText.trim()) {
+const submitInput = async () => {
+  if (inputText.value.trim()) {
     console.log('提交输入:', inputText.value)
-    // 这里可以添加提交逻辑
-    alert('提交成功')
-    inputText.value = ''
-    parsedResult.value = null
+    // 调用LLM进行解析
+    await parseWithLLM()
   }
 }
 
@@ -330,30 +332,107 @@ const submitInput = () => {
 const confirmParse = async () => {
   console.log('确认解析结果:', parsedResult.value)
   try {
-    // 准备任务数据
-    const taskData = {
-      title: parsedResult.value.title,
-      description: parsedResult.value.description || '',
-      task_type: parsedResult.value.task_type,
-      deadline: parsedResult.value.deadline ? new Date(parsedResult.value.deadline).toISOString() : null,
-      estimated_time: parsedResult.value.estimated_time || 0,
-      priority: parsedResult.value.priority,
-      completed: false
+    // 处理空间分隔的日期格式 (YYYY-MM-DD HH:MM) 转换为本地时间格式 (YYYY-MM-DDTHH:MM:SS)
+    const parseDateString = (dateStr) => {
+      if (!dateStr) return null;
+      // 替换空格为 'T' 以符合 ISO 格式
+      const isoDateStr = dateStr.replace(' ', 'T');
+      // 如果没有秒，添加秒
+      if (isoDateStr.length === 16) { // 格式为 YYYY-MM-DDTHH:MM
+        return isoDateStr + ':00';
+      }
+      return isoDateStr;
+    };
+    
+    let taskCount = 0;
+    let entryCount = 0;
+    
+    console.log('检查parsedResult结构:', {
+      hasTasks: !!parsedResult.value.tasks,
+      hasEntries: !!parsedResult.value.entries,
+      tasksType: typeof parsedResult.value.tasks,
+      entriesType: typeof parsedResult.value.entries,
+      tasksLength: parsedResult.value.tasks ? parsedResult.value.tasks.length : 0,
+      entriesLength: parsedResult.value.entries ? parsedResult.value.entries.length : 0
+    });
+    
+    // 处理任务数组
+    if (parsedResult.value.tasks && Array.isArray(parsedResult.value.tasks) && parsedResult.value.tasks.length > 0) {
+      console.log('开始处理任务数组，共', parsedResult.value.tasks.length, '个任务')
+      for (const task of parsedResult.value.tasks) {
+        console.log('处理任务:', task)
+        // 检查任务是否有截止日期，因为Task模型的deadline字段是必填的
+        if (!task.deadline) {
+          console.warn('任务缺少截止日期，跳过创建:', task)
+          continue;
+        }
+        
+        // 准备任务数据
+        const taskData = {
+          title: task.name,
+          description: '',
+          task_type: 'homework',
+          deadline: parseDateString(task.deadline),
+          estimated_time: task.estimated_time || 0,
+          priority: 'medium',
+          completed: false
+        }
+        
+        console.log('发送任务创建请求:', taskData)
+        // 调用API创建任务
+        try {
+          const response = await tasksAPI.addTask(taskData)
+          console.log('任务创建成功:', response)
+          taskCount++;
+        } catch (error) {
+          console.error('任务创建失败:', error)
+          console.error('错误详情:', error.response ? error.response.data : error.message)
+        }
+      }
+    } else {
+      console.log('没有任务需要处理或任务不是有效数组')
     }
     
-    // 调用API创建任务
-    const response = await tasksAPI.addTask(taskData)
-    console.log('任务创建成功:', response)
+    // 处理条目数组
+    if (parsedResult.value.entries && Array.isArray(parsedResult.value.entries) && parsedResult.value.entries.length > 0) {
+      console.log('开始处理条目数组，共', parsedResult.value.entries.length, '个条目')
+      for (const entry of parsedResult.value.entries) {
+        console.log('处理条目:', entry)
+        // 准备条目数据
+        const entryData = {
+          title: entry.title,
+          description: '',
+          entry_type: entry.entry_type || 'meeting',
+          start_time: parseDateString(entry.start_time),
+          end_time: parseDateString(entry.end_time)
+        }
+        
+        console.log('发送条目创建请求:', entryData)
+        // 调用API创建条目
+        try {
+          const response = await entriesAPI.addEntry(entryData)
+          console.log('条目创建成功:', response)
+          entryCount++;
+        } catch (error) {
+          console.error('条目创建失败:', error)
+          console.error('错误详情:', error.response ? error.response.data : error.message)
+        }
+      }
+    } else {
+      console.log('没有条目需要处理或条目不是有效数组')
+    }
     
     // 显示成功提示
-    alert(`任务创建成功！\n任务类型：${parsedResult.value.task_type}\n任务标题：${parsedResult.value.title}\n截止日期：${parsedResult.value.deadline || '无'}`)
+    alert(`解析成功！\n已创建 ${taskCount} 个任务和 ${entryCount} 个条目。`)
     
     // 清空输入和解析结果
     inputText.value = ''
     parsedResult.value = null
   } catch (error) {
-    console.error('任务创建失败:', error)
-    alert('任务创建失败，请重试')
+    console.error('创建失败:', error)
+    console.error('错误详情:', error.response ? error.response.data : error.message)
+    console.error('错误堆栈:', error.stack)
+    alert(`创建失败，请重试\n错误信息: ${error.message}`)
   }
 }
 
@@ -558,27 +637,71 @@ const clearParse = () => {
   color: #333;
 }
 
-.parse-details {
-  margin-bottom: 1.25rem;
+.parse-preview h4 {
+  margin: 1rem 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: #444;
 }
 
-.parse-item {
+.preview-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.preview-list {
   display: flex;
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.parse-item .label {
+.preview-item {
+  padding: 0.75rem;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border-left: 3px solid #4a90e2;
+}
+
+.preview-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.preview-item-title {
   font-weight: 500;
-  margin-right: 0.75rem;
-  color: #666;
-  min-width: 80px;
+  color: #333;
+  font-size: 1rem;
 }
 
-.parse-item .value {
-  color: #333;
-  flex: 1;
+.preview-item-type {
+  font-size: 0.8rem;
+  color: white;
+  background-color: #4a90e2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+}
+
+.preview-item-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.preview-item-detail {
+  display: flex;
+  align-items: center;
+}
+
+.preview-item-detail::before {
+  content: "•";
+  margin-right: 0.25rem;
+  color: #4a90e2;
 }
 
 .parse-status {
