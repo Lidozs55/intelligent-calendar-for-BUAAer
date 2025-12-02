@@ -100,7 +100,7 @@ intelligent-calendar-for-BUAAer/
    
    **配置API_KEY**:
    
-   - 阿里云百炼API_KEY获取方法：[开通服务后创建获取APIKey用于鉴权](https://help.aliyun.com/zh/model-studio/get-api-key)
+   - 阿里云百炼API_KEY获取方法：[开通服务后创建获取APIKey](https://help.aliyun.com/zh/model-studio/get-api-key)
    - 在 `config.py` 文件中找到 `LLM_API_KEY` 配置项，填入获取到的API_KEY
    - 确保API_KEY的归属业务空间有调用相应模型的权限
 
@@ -179,18 +179,12 @@ intelligent-calendar-for-BUAAer/
 
 ## API文档
 
-### 认证相关
+### 日程管理
 
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/register` - 用户注册
-- `GET /api/auth/logout` - 用户登出
-
-### 课程管理
-
-- `GET /api/courses` - 获取课程列表
-- `POST /api/courses` - 添加课程
-- `PUT /api/courses/<id>` - 更新课程
-- `DELETE /api/courses/<id>` - 删除课程
+- `GET /api/entries` - 获取课程列表
+- `POST /api/entries` - 添加课程
+- `PUT /api/entries/<id>` - 更新课程
+- `DELETE /api/entries/<id>` - 删除课程
 
 ### 任务管理
 
