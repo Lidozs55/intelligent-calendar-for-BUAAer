@@ -194,34 +194,61 @@ export const useTaskStore = defineStore('task', {
 
 // 设置状态管理
 export const useSettingsStore = defineStore('settings', {
-  state: () => ({
-    reminderSettings: {
-      course: 30, // 课程提前30分钟提醒
-      exam: [7*24*60, 24*60, 2*60], // 考试提前1周、1天、2小时提醒
-      homework: 24*60 // 作业提前24小时提醒
-    },
-    theme: 'light',
-    energyCycle: {
-      morning: 'high',
-      afternoon: 'medium',
-      evening: 'low'
+  state: () => {
+    // 从localStorage读取设置，但强制使用浅色主题
+    const savedSettings = localStorage.getItem('appSettings')
+    const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {}
+    
+    return {
+      reminderSettings: {
+        course: parsedSettings.reminderSettings?.course || 30, // 课程提前30分钟提醒
+        exam: parsedSettings.reminderSettings?.exam || [7*24*60, 24*60, 2*60], // 考试提前1周、1天、2小时提醒
+        homework: parsedSettings.reminderSettings?.homework || 24*60 // 作业提前24小时提醒
+      },
+      theme: 'light', // 强制使用浅色主题
+      energyCycle: {
+        morning: parsedSettings.energyCycle?.morning || 'high',
+        afternoon: parsedSettings.energyCycle?.afternoon || 'medium',
+        evening: parsedSettings.energyCycle?.evening || 'low'
+      },
+      defaultColor: parsedSettings.defaultColor || '#4a90e2' // 默认主题色
     }
-  }),
+  },
   
   actions: {
+    // 保存设置到localStorage
+    saveSettingsToLocal() {
+      const settingsToSave = {
+        reminderSettings: this.reminderSettings,
+        theme: this.theme,
+        energyCycle: this.energyCycle,
+        defaultColor: this.defaultColor
+      }
+      localStorage.setItem('appSettings', JSON.stringify(settingsToSave))
+    },
+    
     // 更新提醒设置
     updateReminderSettings(settings) {
       this.reminderSettings = { ...this.reminderSettings, ...settings }
+      this.saveSettingsToLocal()
     },
     
     // 更新主题
     updateTheme(theme) {
       this.theme = theme
+      this.saveSettingsToLocal()
     },
     
     // 更新精力周期
     updateEnergyCycle(cycle) {
       this.energyCycle = { ...this.energyCycle, ...cycle }
+      this.saveSettingsToLocal()
+    },
+    
+    // 更新默认颜色
+    updateDefaultColor(color) {
+      this.defaultColor = color
+      this.saveSettingsToLocal()
     }
   }
 })

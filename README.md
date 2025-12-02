@@ -32,7 +32,7 @@
 
 - **课程管理**: 自动导入北航课程表，支持手动调整
 - **任务管理**: 创建、编辑、删除任务，支持优先级和截止日期
-- **日历视图**: 日/周/月视图切换，直观展示日程安排
+- **日历视图**: 周/月视图切换，直观展示日程安排
 - **智能输入**: 支持自然语言输入任务，自动解析时间和内容
 - **LLM辅助**: 利用大语言模型生成智能日程建议
 - **提醒服务**: 重要任务和事件提醒
@@ -179,13 +179,6 @@ intelligent-calendar-for-BUAAer/
 
 ## API文档
 
-### 日程管理
-
-- `GET /api/entries` - 获取课程列表
-- `POST /api/entries` - 添加课程
-- `PUT /api/entries/<id>` - 更新课程
-- `DELETE /api/entries/<id>` - 删除课程
-
 ### 任务管理
 
 - `GET /api/tasks` - 获取任务列表
@@ -204,11 +197,6 @@ intelligent-calendar-for-BUAAer/
 
 - `POST /api/llm/parse` - 解析自然语言任务
 - `POST /api/llm/schedule` - 生成智能日程
-
-### 日程管理
-
-- `GET /api/schedule` - 获取日程安排
-- `POST /api/schedule/generate` - 生成日程
 
 ## 功能模块详细说明
 

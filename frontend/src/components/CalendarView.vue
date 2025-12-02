@@ -580,8 +580,8 @@ const getStringDisplayLength = (str) => {
 }
 
 // 截断字符串，超过指定显示长度则添加省略号
-// 最大显示长度：18个单位（9个中文字符或18个英文字符）
-const truncateString = (str, maxDisplayLength = 17) => {
+// 最大显示长度：19个单位（9个中文字符或19个英文字符）
+const truncateString = (str, maxDisplayLength = 19) => {
   if (!str) return ''
   
   const displayLength = getStringDisplayLength(str)
@@ -792,7 +792,7 @@ watch(() => entryStore.entries, (newEntries) => {
 }
 
 .quick-jump-btn {
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -804,7 +804,7 @@ watch(() => entryStore.entries, (newEntries) => {
 }
 
 .quick-jump-btn:hover {
-  background-color: #357abd;
+  background-color: var(--primary-dark);
 }
 
 .quick-jump-calendar {
@@ -954,6 +954,33 @@ watch(() => entryStore.entries, (newEntries) => {
   overflow-x: hidden !important;
   max-height: calc(100vh - 220px) !important;
   position: relative;
+}
+
+/* 调整日程块样式：字体适当缩小，增加内边距 */
+:deep(.fc-event) {
+  font-size: 0.75rem !important;
+  padding: 0px 4px !important;
+}
+
+/* 调整FullCalendar按钮样式 */
+:deep(.fc-button) {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: white !important;
+}
+
+:deep(.fc-button:hover) {
+  background-color: var(--primary-dark) !important;
+  border-color: var(--primary-dark) !important;
+}
+
+:deep(.fc-button:focus) {
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2) !important;
+}
+
+:deep(.fc-button:active) {
+  background-color: var(--primary-dark) !important;
+  border-color: var(--primary-dark) !important;
 }
 
 /* 加载状态样式 - 角落小提示 */

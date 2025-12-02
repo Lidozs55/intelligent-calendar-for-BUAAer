@@ -512,7 +512,7 @@ onMounted(() => {
 .stat-value {
   font-size: 1.25rem;
   font-weight: bold;
-  color: #4a90e2;
+  color: var(--primary-color);
 }
 
 .task-filter {
@@ -552,12 +552,12 @@ onMounted(() => {
 
 .filter-select:focus {
   outline: none;
-  border-color: #4a90e2;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
 }
 
 .filter-select:hover {
-  border-color: #4a90e2;
+  border-color: var(--primary-color);
 }
 
 .task-list {
@@ -607,6 +607,11 @@ onMounted(() => {
 
 .task-checkbox {
   margin-top: 0.25rem;
+}
+
+/* 自定义复选框样式 */
+.task-checkbox input[type="checkbox"] {
+  accent-color: var(--primary-color);
 }
 
 .task-content {
@@ -698,7 +703,7 @@ onMounted(() => {
   padding: 0.75rem;
   border: none;
   border-radius: 8px;
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
   font-size: 1rem;
   cursor: pointer;
@@ -706,7 +711,7 @@ onMounted(() => {
 }
 
 .add-task-btn:hover {
-  background-color: #357abd;
+  background-color: var(--primary-dark);
 }
 
 /* 滚动内容区域样式 */
@@ -714,6 +719,83 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   margin-bottom: 1rem;
+}
+
+/* 深色模式下的任务项样式 */
+.dark .task-item {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .task-item:hover {
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+/* 深色模式下的任务标题和描述 */
+.dark .task-title {
+  color: var(--text-primary);
+}
+
+.dark .task-description {
+  color: var(--text-secondary);
+}
+
+/* 深色模式下的统计信息样式 */
+.dark .stats-progress-section {
+  background-color: var(--bg-secondary);
+}
+
+.dark .stat-label {
+  color: var(--text-secondary);
+}
+
+.dark .stat-value {
+  color: var(--primary-color);
+}
+
+/* 深色模式下的即将到期任务样式 */
+.dark .upcoming-tasks-section {
+  background-color: #2d2d2d;
+  border-left-color: var(--primary-color);
+}
+
+.dark .upcoming-task {
+  background-color: var(--bg-secondary);
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.dark .upcoming-task-title {
+  color: var(--text-primary);
+}
+
+.dark .upcoming-task-deadline {
+  color: var(--text-secondary);
+}
+
+/* 深色模式下的模态框样式 */
+.dark .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.dark .modal-content {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.dark .modal-content h3 {
+  color: var(--text-primary);
+}
+
+.dark .modal-content label {
+  color: var(--text-primary);
+}
+
+/* 深色模式下的空状态样式 */
+.dark .empty-state,
+.dark .loading-state,
+.dark .error-state {
+  color: var(--text-secondary);
 }
 
 /* 任务统计和进度条合并样式 */
@@ -738,7 +820,7 @@ onMounted(() => {
 
 .progress-fill {
   height: 100%;
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   border-radius: 3px;
   transition: width 0.3s ease;
 }

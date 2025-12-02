@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" :class="theme">
+  <div class="app-container" :class="theme" :style="appStyle">
     <!-- 根据当前页面显示不同内容 -->
     <template v-if="currentPage === 'home'">
       <header class="app-header">
@@ -113,6 +113,134 @@ let clipboardCheckInterval = null
 
 // 最后一次剪切板内容
 let lastClipboardText = ''
+
+// 计算应用样式，动态设置CSS变量
+const appStyle = computed(() => {
+  const defaultColor = settingsStore.defaultColor
+  // 生成浅色版本：降低饱和度和亮度
+  const lightVersion = getLightVersion(defaultColor)
+  // 生成深色调版本：用于深色主题
+  const darkVersion = getDarkVersion(defaultColor)
+  
+  return {
+    '--primary-color': defaultColor,
+    '--primary-light': lightVersion,
+    '--primary-dark': darkVersion,
+    '--bg-header': defaultColor,
+    '--accent-color': defaultColor
+  }
+})
+
+// 生成颜色的浅色版本
+function getLightVersion(color) {
+  // 解析颜色为RGB
+  const rgb = hexToRgb(color)
+  if (!rgb) return '#e3f2fd'
+  
+  // 转换为HSL
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b)
+  
+  // 降低饱和度，提高亮度
+  hsl.s = Math.max(0, hsl.s - 0.3)
+  hsl.l = Math.min(0.95, hsl.l + 0.3)
+  
+  // 转换回RGB
+  const lightRgb = hslToRgb(hsl.h, hsl.s, hsl.l)
+  
+  // 转换回十六进制
+  return rgbToHex(lightRgb.r, lightRgb.g, lightRgb.b)
+}
+
+// 生成颜色的深色版本
+function getDarkVersion(color) {
+  // 解析颜色为RGB
+  const rgb = hexToRgb(color)
+  if (!rgb) return '#1976d2'
+  
+  // 转换为HSL
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b)
+  
+  // 提高饱和度，降低亮度
+  hsl.s = Math.min(1, hsl.s + 0.2)
+  hsl.l = Math.max(0.2, hsl.l - 0.2)
+  
+  // 转换回RGB
+  const darkRgb = hslToRgb(hsl.h, hsl.s, hsl.l)
+  
+  // 转换回十六进制
+  return rgbToHex(darkRgb.r, darkRgb.g, darkRgb.b)
+}
+
+// 十六进制转RGB
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null
+}
+
+// RGB转HSL
+function rgbToHsl(r, g, b) {
+  r /= 255
+  g /= 255
+  b /= 255
+  
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h, s, l = (max + min) / 2
+  
+  if (max === min) {
+    h = s = 0 // achromatic
+  } else {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break
+      case g: h = (b - r) / d + 2; break
+      case b: h = (r - g) / d + 4; break
+    }
+    h /= 6
+  }
+  
+  return { h, s, l }
+}
+
+// HSL转RGB
+function hslToRgb(h, s, l) {
+  let r, g, b
+  
+  if (s === 0) {
+    r = g = b = l // achromatic
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1
+      if (t > 1) t -= 1
+      if (t < 1/6) return p + (q - p) * 6 * t
+      if (t < 1/2) return q
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6
+      return p
+    }
+    
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+    r = hue2rgb(p, q, h + 1/3)
+    g = hue2rgb(p, q, h)
+    b = hue2rgb(p, q, h - 1/3)
+  }
+  
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255)
+  }
+}
+
+// RGB转十六进制
+function rgbToHex(r, g, b) {
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+}
 
 // 自动检测剪切板内容
 const autoCheckClipboard = async () => {
@@ -230,22 +358,29 @@ settingsStore.$subscribe(updateNotificationCheck)
 :root {
   --bg-primary: #f5f5f5;
   --bg-secondary: white;
-  --bg-header: #4a90e2;
+  --bg-header: var(--primary-color, #4a90e2);
   --text-primary: #333;
   --text-secondary: #666;
   --border-color: #e0e0e0;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --primary-color: #4a90e2;
+  --primary-light: #e3f2fd;
+  --primary-dark: #1976d2;
+  --accent-color: var(--primary-color, #4a90e2);
 }
 
 /* 深色主题变量 */
 .dark {
   --bg-primary: #121212;
   --bg-secondary: #1e1e1e;
-  --bg-header: #1f3a5f;
-  --text-primary: #e0e0e0;
+  --bg-header: var(--primary-dark, #1976d2);
+  --text-primary: #ffffff;
   --text-secondary: #b0b0b0;
   --border-color: #333;
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --input-bg: #2d2d2d;
+  --input-text: #ffffff;
+  --button-hover: rgba(255, 255, 255, 0.1);
 }
 
 body {
@@ -253,6 +388,36 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 深色模式下的表单元素样式 */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--border-color);
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+/* 深色模式下的按钮样式 */
+.dark button {
+  color: var(--text-primary);
+}
+
+.dark .header-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .header-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .app-container {
@@ -394,17 +559,16 @@ body {
 }
 
 .save-btn {
-  background-color: #4a90e2;
-  color: white;
-  border: none;
   padding: 0.75rem 1.5rem;
+  border: none;
   border-radius: 4px;
+  background-color: var(--primary-color);
+  color: white;
   cursor: pointer;
-  font-size: 1rem;
   transition: background-color 0.3s ease;
 }
 
 .save-btn:hover {
-  background-color: #357abd;
+  background-color: var(--primary-dark);
 }
 </style>

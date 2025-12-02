@@ -100,7 +100,8 @@
       <section class="settings-section">
         <h3>主题外观设置</h3>
         <div class="settings-form">
-          <div class="form-group">
+          <!-- 暂时禁用深色模式切换 -->
+          <div class="form-group" style="display: none;">
             <label>主题选择</label>
             <div class="theme-options">
               <label class="theme-option">
@@ -108,6 +109,8 @@
                   type="radio" 
                   v-model="theme" 
                   value="light" 
+                  checked
+                  disabled
                 />
                 <span>浅色主题</span>
               </label>
@@ -116,13 +119,32 @@
                   type="radio" 
                   v-model="theme" 
                   value="dark" 
+                  disabled
                 />
                 <span>深色主题</span>
               </label>
             </div>
           </div>
           
-          <button class="save-btn" @click="saveTheme">保存</button>
+          <div class="form-group">
+            <label for="default-color">默认主题色</label>
+            <div class="color-picker-group">
+              <input 
+                type="color" 
+                id="default-color" 
+                v-model="defaultColor" 
+                class="color-picker"
+              />
+              <input 
+                type="text" 
+                v-model="defaultColor" 
+                class="color-input"
+                placeholder="#4a90e2"
+              />
+            </div>
+          </div>
+          
+          <button class="save-btn" @click="saveThemeAndColor">保存</button>
         </div>
       </section>
       
@@ -185,6 +207,9 @@ const reminderSettings = ref({
 
 // 主题设置
 const theme = ref(settingsStore.theme)
+
+// 默认颜色设置
+const defaultColor = ref(settingsStore.defaultColor)
 
 // 精力周期设置
 const energyCycle = ref({
@@ -310,11 +335,12 @@ const saveReminderSettings = () => {
   alert('保存成功')
 }
 
-// 保存主题设置
-const saveTheme = () => {
+// 保存主题和颜色设置
+const saveThemeAndColor = () => {
   settingsStore.updateTheme(theme.value)
-  // 主题切换会通过CSS变量自动生效，不需要额外的逻辑
-  alert('主题设置已保存')
+  settingsStore.updateDefaultColor(defaultColor.value)
+  // 主题和颜色切换会通过CSS变量自动生效
+  alert('主题和颜色设置已保存')
 }
 
 // 保存精力周期设置
@@ -413,7 +439,7 @@ const saveEnergyCycle = () => {
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #4a90e2;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
 }
 
@@ -424,10 +450,10 @@ const saveEnergyCycle = () => {
 
 .sync-btn {
   padding: 0.75rem 1.5rem;
-  border: 1px solid #4a90e2;
+  border: 1px solid var(--primary-color);
   border-radius: 4px;
   background-color: white;
-  color: #4a90e2;
+  color: var(--primary-color);
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 1rem;
@@ -435,7 +461,7 @@ const saveEnergyCycle = () => {
 }
 
 .sync-btn:hover {
-  background-color: #f0f7ff;
+  background-color: var(--primary-light);
 }
 
 .form-hint {
@@ -564,11 +590,38 @@ const saveEnergyCycle = () => {
   cursor: pointer;
 }
 
+/* 自定义单选按钮样式 */
+.theme-option input[type="radio"] {
+  accent-color: var(--primary-color);
+}
+
+.color-picker-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.color-picker {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.color-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
 .save-btn {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 4px;
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -577,7 +630,7 @@ const saveEnergyCycle = () => {
 }
 
 .save-btn:hover {
-  background-color: #357abd;
+  background-color: var(--primary-dark);
 }
 
 /* 同步状态样式 */
