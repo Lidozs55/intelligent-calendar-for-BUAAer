@@ -32,33 +32,6 @@
       </div>
     </div>
   </div>
-  
-  <!-- 即将到期任务提醒 -->
-  <div v-if="showUpcomingTasks && upcomingTasks.length > 0" class="upcoming-tasks-section">
-    <div class="upcoming-header">
-      <h3>即将到期任务</h3>
-      <div class="upcoming-header-actions">
-        <span class="upcoming-count">{{ upcomingTasks.length }}</span>
-        <button class="close-upcoming-btn" @click="hideUpcomingTasks">×</button>
-      </div>
-    </div>
-    <div class="upcoming-list">
-      <div v-for="task in upcomingTasks" :key="task.id" class="upcoming-task">
-        <div class="upcoming-task-content">
-          <h4 class="upcoming-task-title">{{ task.title }}</h4>
-          <p class="upcoming-task-deadline">
-            截止时间：{{ formatDate(task.deadline) }}
-          </p>
-        </div>
-        <button 
-          :class="['mark-complete-btn', { 'undo-btn': task.completed }]" 
-          @click="toggleTaskCompletion(task)"
-        >
-          {{ task.completed ? '还未完成' : '完成' }}
-        </button>
-      </div>
-    </div>
-  </div>
     
     <div class="task-filter">
       <div class="filter-row">
@@ -73,6 +46,35 @@
             <option value="pending">待完成</option>
             <option value="completed">已完成</option>
           </select>
+        </div>
+      </div>
+    </div>
+  
+  <!-- 滚动内容区域：包含即将到期任务和任务列表 -->
+  <div class="scrollable-content">
+    <!-- 即将到期任务提醒 -->
+    <div v-if="showUpcomingTasks && upcomingTasks.length > 0" class="upcoming-tasks-section">
+      <div class="upcoming-header">
+        <h3>即将到期任务</h3>
+        <div class="upcoming-header-actions">
+          <span class="upcoming-count">{{ upcomingTasks.length }}</span>
+          <button class="close-upcoming-btn" @click="hideUpcomingTasks">×</button>
+        </div>
+      </div>
+      <div class="upcoming-list">
+        <div v-for="task in upcomingTasks" :key="task.id" class="upcoming-task">
+          <div class="upcoming-task-content">
+            <h4 class="upcoming-task-title">{{ task.title }}</h4>
+            <p class="upcoming-task-deadline">
+              截止时间：{{ formatDate(task.deadline) }}
+            </p>
+          </div>
+          <button 
+            :class="['mark-complete-btn', { 'undo-btn': task.completed }]" 
+            @click="toggleTaskCompletion(task)"
+          >
+            {{ task.completed ? '还未完成' : '完成' }}
+          </button>
         </div>
       </div>
     </div>
@@ -127,6 +129,7 @@
         </div>
       </div>
     </div>
+  </div>
     
     <div class="sidebar-footer">
       <button class="add-task-btn" @click="addNewTask">+ 添加任务</button>
@@ -229,7 +232,16 @@ const displayTasks = computed(() => {
     filteredTasks = [...taskStore.tasks, ...taskStore.completedTasks]
   }
   
-  return filteredTasks
+  // 按截止时间排序：时间靠前的排在前面，没有截止日期的排在最后
+  return filteredTasks.sort((a, b) => {
+    // 处理没有截止日期的情况
+    if (!a.deadline && !b.deadline) return 0
+    if (!a.deadline) return 1 // a没有截止日期，排在后面
+    if (!b.deadline) return -1 // b没有截止日期，排在后面
+    
+    // 都有截止日期，按时间排序
+    return new Date(a.deadline) - new Date(b.deadline)
+  })
 })
 
 // 计算属性：总任务数
@@ -257,11 +269,16 @@ const upcomingTasks = computed(() => {
   // 获取所有任务，包括已完成和未完成
   const allTasks = [...taskStore.tasks, ...taskStore.completedTasks]
   
-  return allTasks.filter(task => {
-    if (!task.deadline) return false
-    const deadline = new Date(task.deadline)
-    return deadline >= now && deadline <= tomorrow
-  })
+  return allTasks
+    .filter(task => {
+      if (!task.deadline) return false
+      const deadline = new Date(task.deadline)
+      return deadline >= now && deadline <= tomorrow
+    })
+    .sort((a, b) => {
+      // 按截止时间排序，时间靠前的排在前面
+      return new Date(a.deadline) - new Date(b.deadline)
+    })
 })
 
 // 加载任务数据
@@ -544,9 +561,7 @@ onMounted(() => {
 }
 
 .task-list {
-  flex: 1;
-  overflow-y: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .loading-state, .error-state, .empty-state {
@@ -692,6 +707,13 @@ onMounted(() => {
 
 .add-task-btn:hover {
   background-color: #357abd;
+}
+
+/* 滚动内容区域样式 */
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
 }
 
 /* 任务统计和进度条合并样式 */
