@@ -79,7 +79,7 @@ class LLMParser:
         prompt += "      \"title\": \"日程名称\",\n"
         prompt += "      \"start_time\": \"YYYY-MM-DD HH:MM\",\n"
         prompt += "      \"end_time\": \"YYYY-MM-DD HH:MM\",\n"
-        prompt += "      \"entry_type\": \"meeting/course/exam/study/lecture/sports\"\n"
+        prompt += "      \"entry_type\": \"meeting/course/exam/study/lecture/sports/other\"\n"
         prompt += "    }\n"
         prompt += "  ]\n"
         prompt += "}\n"
@@ -89,7 +89,7 @@ class LLMParser:
             messages = [{"role": "user", "content": prompt}]
             response = Generation.call(
                 api_key=self.api_key,
-                model="qwen-plus",
+                model="qwen-plus-2025-07-28",
                 messages=messages,
                 result_format="message",
                 enable_thinking=False,

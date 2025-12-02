@@ -1,15 +1,12 @@
 from flask import Blueprint, request, jsonify
 from services.llm_parser import LLMParser
-import pytesseract
+import easyocr
 from PIL import Image
 import io
 import os
 
-# 设置TESSDATA_PREFIX环境变量，指向tessdata目录
-os.environ['TESSDATA_PREFIX'] = r'D:\Tesseract-OCR\tessdata'
-
-# 设置pytesseract的tesseract命令路径
-pytesseract.pytesseract.tesseract_cmd = r'D:\Tesseract-OCR\tesseract.exe'
+# 初始化easyocr阅读器（只需要初始化一次）
+reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
 
 # 创建蓝图
 llm_bp = Blueprint('llm', __name__)
@@ -158,22 +155,30 @@ def parse_image():
             img = Image.open(image)
             print(f"成功打开图片，格式: {img.format}, 尺寸: {img.size}")
             
-            # 使用pytesseract进行OCR识别
+            # 使用easyocr进行OCR识别
             print("开始OCR识别...")
             try:
-                # 尝试使用中文语言包
-                ocr_text = pytesseract.image_to_string(img, lang='chi_sim')
-                print(f"中文OCR识别结果: {ocr_text}")
-            except pytesseract.pytesseract.TesseractError as e:
-                print(f"中文OCR识别失败: {str(e)}")
-                print("尝试使用英文语言包...")
-                try:
-                    # 回退到使用英文语言包
-                    ocr_text = pytesseract.image_to_string(img, lang='eng')
-                    print(f"英文OCR识别结果: {ocr_text}")
-                except Exception as e2:
-                    print(f"英文OCR识别也失败: {str(e2)}")
-                    ocr_text = "OCR识别失败，可能缺少语言包"
+                # 保存图片到临时文件，因为easyocr需要文件路径
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                    img.save(temp_file, format='PNG')
+                    temp_file_path = temp_file.name
+                
+                # 使用easyocr进行识别
+                results = reader.readtext(temp_file_path, detail=0)
+                print(f"OCR识别结果: {results}")
+                
+                # 合并识别结果
+                ocr_text = ' '.join(results)
+                print(f"合并后的OCR识别结果: {ocr_text}")
+                
+                # 删除临时文件
+                os.unlink(temp_file_path)
+            except Exception as e:
+                print(f"OCR识别失败: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                ocr_text = f"OCR识别失败: {str(e)}"
             print(f"最终OCR识别结果: {ocr_text}")
             
             if not ocr_text.strip():
