@@ -1,5 +1,56 @@
 <template>
   <div class="calendar-container">
+    <!-- 快速跳转功能 -->
+    <div class="quick-jump-container">
+      <button 
+        class="quick-jump-btn"
+        @click="toggleQuickJump"
+      >
+        快速跳转
+      </button>
+      
+      <!-- 快速跳转小日历 -->
+      <div v-if="showQuickJump" class="quick-jump-calendar">
+        <div class="calendar-header">
+          <button @click="changeMonth(-1)" class="month-nav-btn">&lt;</button>
+          <span class="current-month">{{ currentYear }}年{{ currentMonth + 1 }}月</span>
+          <button @click="changeMonth(1)" class="month-nav-btn">&gt;</button>
+        </div>
+        <div class="calendar-grid">
+          <div class="weekdays">
+            <div class="weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
+          </div>
+          <div class="days">
+            <div 
+              class="day empty" 
+              v-for="emptyDay in emptyDaysBefore" 
+              :key="'empty-' + emptyDay"
+            ></div>
+            <div 
+              class="day" 
+              v-for="day in daysInMonth" 
+              :key="day"
+              :class="{ 'today': isToday(day), 'selected': selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentMonth && selectedDate.getFullYear() === currentYear }"
+              @click="selectDateAndJump(day)"
+            >
+              {{ day }}
+            </div>
+            <div 
+              class="day empty" 
+              v-for="emptyDay in emptyDaysAfter" 
+              :key="'empty-after-' + emptyDay"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 加载状态提示 - 角落小提示 -->
+    <div v-if="isLoading" class="loading-corner">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">{{ loadingStatus }}</div>
+    </div>
+    
     <FullCalendar
       :options="calendarOptions"
       ref="calendarRef"
@@ -17,14 +68,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import { useCourseStore, useUserStore, useTaskStore, useEntryStore } from '../store'
-import { coursesAPI, tasksAPI, entriesAPI } from '../services/api'
+import { coursesAPI, tasksAPI, entriesAPI, authAPI } from '../services/api'
 import EventEditModal from './EventEditModal.vue'
+import axios from 'axios'
 
 const calendarRef = ref(null)
 const courseStore = useCourseStore()
@@ -36,8 +88,99 @@ const entryStore = useEntryStore()
 const showEditModal = ref(false)
 const editingEvent = ref(null)
 
+// 加载状态
+const loadingStatus = ref('')
+const isLoading = ref(false)
+
+// 取消令牌，用于取消正在进行的请求
+let cancelTokenSource = null
+
+// 事件类型到默认颜色的映射（使用深色系，确保白色字体清晰可见）
+const typeToColor = {
+  course: '#2c3e50',       // 深蓝灰色
+  lecture: '#34495e',      // 深灰色
+  exam: '#c0392b',         // 深红色
+  meeting: '#27ae60',      // 深绿色
+  homework: '#8e44ad',     // 深紫色
+  exercise: '#16a085',     // 深青色
+  sports: '#f39c12',       // 深橙色
+  study: '#2980b9',        // 深蓝色
+  other: '#7f8c8d'         // 深灰色
+}
+
 // 临时事件引用
 let tempEvent = null
+
+// 快速跳转功能状态
+const showQuickJump = ref(false)
+const currentDate = ref(new Date())
+const currentYear = computed(() => currentDate.value.getFullYear())
+const currentMonth = computed(() => currentDate.value.getMonth())
+const selectedDate = ref(null)
+const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+
+// 计算当月天数
+const daysInMonth = computed(() => {
+  return new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
+})
+
+// 计算当月第一天是星期几
+const firstDayOfMonth = computed(() => {
+  return new Date(currentYear.value, currentMonth.value, 1).getDay()
+})
+
+// 计算月初空白天数
+const emptyDaysBefore = computed(() => {
+  return firstDayOfMonth.value
+})
+
+// 计算月末空白天数
+const emptyDaysAfter = computed(() => {
+  const totalDays = emptyDaysBefore.value + daysInMonth.value
+  const weeks = Math.ceil(totalDays / 7)
+  return weeks * 7 - totalDays
+})
+
+// 切换快速跳转日历显示
+const toggleQuickJump = () => {
+  showQuickJump.value = !showQuickJump.value
+}
+
+// 切换月份
+const changeMonth = (delta) => {
+  currentDate.value = new Date(currentYear.value, currentMonth.value + delta, 1)
+}
+
+// 检查是否为今天
+const isToday = (day) => {
+  const today = new Date()
+  return today.getDate() === day && today.getMonth() === currentMonth.value && today.getFullYear() === currentYear.value
+}
+
+// 选择日期并跳转
+const selectDateAndJump = (day) => {
+  selectedDate.value = new Date(currentYear.value, currentMonth.value, day)
+  
+  // 跳转到选中日期
+  if (calendarRef.value) {
+    const calendarApi = calendarRef.value.getApi()
+    calendarApi.gotoDate(selectedDate.value)
+  }
+  
+  // 关闭快速跳转日历
+  showQuickJump.value = false
+  
+  // 重新加载数据
+  fetchDataAndUpdateCalendar(selectedDate.value)
+}
+
+// 点击外部关闭快速跳转日历
+document.addEventListener('click', (e) => {
+  const quickJumpContainer = document.querySelector('.quick-jump-container')
+  if (quickJumpContainer && !quickJumpContainer.contains(e.target)) {
+    showQuickJump.value = false
+  }
+})
 
 // 销毁临时事件的函数
 const destroyTempEvent = () => {
@@ -122,7 +265,6 @@ const calendarOptions = {
       today: '跳转到今天',
       month: '月',
       week: '周',
-      day: '日',
       list: '列表'
     },
     
@@ -176,7 +318,20 @@ const calendarOptions = {
     viewDidMount: () => {
       console.log('日历已加载完成，开始加载数据')
       // 日历加载完成后再加载数据，确保calendarRef可用
-      fetchDataAndUpdateCalendar()
+      const initialDate = adjustInitialDate()
+      fetchDataAndUpdateCalendar(initialDate)
+      
+      // 添加定时器定期检查并修复日历标题
+      setTimeout(() => {
+        fixCalendarTitle()
+      }, 100)
+    },
+    
+    // 视图切换事件
+    viewDidChange: () => {
+      setTimeout(() => {
+        fixCalendarTitle()
+      }, 100)
     },
     
     // 日期渲染事件，用于自定义表头样式和日期导航
@@ -186,6 +341,15 @@ const calendarOptions = {
       if (info.view.type === 'timeGridWeek') {
         info.view.calendar.setOption('duration', { days: 7 })
       }
+      
+      // 当日期范围变化时，获取当前视图的中心日期并重新加载数据
+      const centerDate = info.view.currentStart
+      fetchDataAndUpdateCalendar(centerDate)
+      
+      // 修复日历标题
+      setTimeout(() => {
+        fixCalendarTitle()
+      }, 50)
       
       // 仅为周末添加浅蓝背景（节假日功能暂时禁用）
       setTimeout(() => {
@@ -222,16 +386,19 @@ const calendarOptions = {
       }
       
       // 创建临时事件
+      const eventType = 'other' // 默认类型改为other
+      const color = typeToColor[eventType] || '#7f8c8d'
       tempEvent = selectInfo.view.calendar.addEvent({
         title: '新建事件',
         start: selectInfo.start,
         end: selectInfo.end,
-        backgroundColor: 'rgba(74, 144, 226, 0.5)',
-        borderColor: '#4a90e2',
+        backgroundColor: `${color}80`, // 添加透明度
+        borderColor: color,
         allDay: false,
         extendedProps: {
-          type: 'temp', // 标记为临时事件
-          isTemp: true
+          type: eventType,
+          isTemp: true,
+          fullTitle: '新建事件' // 存储完整标题，用于编辑时显示
         },
         className: 'temp-event', // 添加临时事件类名
         // 添加data属性以便识别
@@ -337,16 +504,19 @@ eventClick: (clickInfo) => {
       const endTime = new Date(info.date)
       endTime.setHours(endTime.getHours() + 1)
       
+      const eventType = 'other' // 默认类型改为other
+      const color = typeToColor[eventType] || '#7f8c8d'
       tempEvent = info.view.calendar.addEvent({
         title: '新建事件',
         start: info.date,
         end: endTime,
-        backgroundColor: 'rgba(74, 144, 226, 0.5)',
-        borderColor: '#4a90e2',
+        backgroundColor: `${color}80`, // 添加透明度
+        borderColor: color,
         allDay: false,
         extendedProps: {
-          type: 'meeting', // 默认类型
-          isTemp: true
+          type: eventType,
+          isTemp: true,
+          fullTitle: '新建事件' // 存储完整标题，用于编辑时显示
         },
         className: 'temp-event', // 添加临时事件类名
         // 使用eventDidMount回调来添加data属性
@@ -452,7 +622,8 @@ const updateCalendarEvents = (entries) => {
       allDay: false,
       editable: !dragBlacklist.includes(entry.entry_type), // 根据黑名单决定是否可编辑（拖动）
       extendedProps: {
-        type: entry.entry_type // 添加类型标识
+        type: entry.entry_type, // 添加类型标识
+        fullTitle: entry.title // 存储完整标题，用于编辑时显示
       }
     }
   })
@@ -500,6 +671,38 @@ const handleEventDelete = async (eventId) => {
   console.log('删除事件:', eventId)
   // 重新从API获取数据并更新日历
   await fetchDataAndUpdateCalendar()
+}
+
+// 修复日历标题，将结束日期减1天
+const fixCalendarTitle = () => {
+  const titleEl = document.querySelector('.fc-toolbar-title')
+  if (titleEl) {
+    const titleText = titleEl.textContent
+    // 匹配日期范围格式：YYYY年MM月DD日 – YYYY年MM月DD日
+    const dateRangeRegex = /(\d{4})年(\d{1,2})月(\d{1,2})日 – (\d{4})年(\d{1,2})月(\d{1,2})日/;
+    const match = titleText.match(dateRangeRegex)
+    console.log("fix calendar title")
+    if (match) {
+      console.log("fixing calendar title")
+      // 解析日期
+      const endYear = parseInt(match[4])
+      const endMonth = parseInt(match[5]) - 1 // 月份转为0-11
+      const endDay = parseInt(match[6])
+      
+      // 创建结束日期对象并减1天
+      const endDate = new Date(endYear, endMonth, endDay)
+      endDate.setDate(endDate.getDate() - 1)
+      
+      // 格式化新的结束日期
+      const newEndYear = endDate.getFullYear()
+      const newEndMonth = endDate.getMonth() + 1 // 月份转为1-12
+      const newEndDay = endDate.getDate()
+      
+      // 构建新的标题文本
+      const newTitle = `${match[1]}年${match[2]}月${match[3]}日 – ${newEndYear}年${newEndMonth}月${newEndDay}日`
+      titleEl.textContent = newTitle
+    }
+  }
 }
 
 onMounted(() => {
@@ -580,6 +783,137 @@ watch(() => entryStore.entries, (newEntries) => {
   display: block;
 }
 
+/* 快速跳转功能样式 */
+.quick-jump-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+
+.quick-jump-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.quick-jump-btn:hover {
+  background-color: #357abd;
+}
+
+.quick-jump-calendar {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 5px;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 1rem;
+  width: 300px;
+  z-index: 1001;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.month-nav-btn {
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.month-nav-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.current-month {
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.calendar-grid {
+  width: 100%;
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.5rem;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #666;
+  padding: 0.5rem 0;
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.day {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.day:hover {
+  background-color: #e3f2fd;
+  border-color: #4a90e2;
+}
+
+.day.today {
+  background-color: #4a90e2;
+  color: white;
+  font-weight: 500;
+}
+
+.day.selected {
+  background-color: #2196f3;
+  color: white;
+  font-weight: 500;
+}
+
+.day.empty {
+  cursor: default;
+}
+
+.day.empty:hover {
+  background-color: transparent;
+  border-color: transparent;
+}
+
 /* 调整列宽，使用百分比大小 */
 :deep(.fc-timegrid-view .fc-timegrid-col) {
   width: 14.28% !important; /* 7天，每天约14.28% */
@@ -588,18 +922,30 @@ watch(() => entryStore.entries, (newEntries) => {
 /* 在23:00和0:00的分界位置添加加粗的黑线 */
 :deep(.fc-timegrid-view .fc-timegrid-slot[data-time="23:00:00"]) {
   border-bottom: 3px solid #000000 !important;
+  position: relative;
   z-index: 1 !important;
 }
 
-/* 确保分隔线显示在表格上方但在日程下方 */
+/* 确保所有时间槽的z-index正确 */
 :deep(.fc-timegrid-slot) {
   position: relative;
   z-index: 1 !important;
 }
 
+/* 确保事件的z-index高于分隔线 */
 :deep(.fc-timegrid-view .fc-event) {
   position: relative;
   z-index: 2 !important;
+}
+
+/* 确保网格线的z-index低于分隔线 */
+:deep(.fc-timegrid-divider) {
+  z-index: 0 !important;
+}
+
+/* 确保时间轴的z-index低于分隔线 */
+:deep(.fc-timegrid-axis) {
+  z-index: 0 !important;
 }
 
 /* 确保时间段显示完整并保留滚动条 */
@@ -608,6 +954,52 @@ watch(() => entryStore.entries, (newEntries) => {
   overflow-x: hidden !important;
   max-height: calc(100vh - 220px) !important;
   position: relative;
+}
+
+/* 加载状态样式 - 角落小提示 */
+.loading-corner {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  min-width: 200px;
+  max-width: 300px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.loading-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4a90e2;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 </style>

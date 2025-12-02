@@ -136,7 +136,7 @@ def get_entries_by_date_range(date):
     try:
         # 解析日期参数
         try:
-            start_date = datetime.strptime(date, '%Y-%m-%d').date()
+            start_date = datetime.strptime(date, '%Y-%m-%d').date()+timedelta(hours=8)
         except ValueError:
             return jsonify({'error': '日期格式错误，应为 yyyy-mm-dd'}), 400
         

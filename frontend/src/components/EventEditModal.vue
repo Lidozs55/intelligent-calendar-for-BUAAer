@@ -35,6 +35,7 @@
                 <option value="exercise">作业完成</option>
                 <option value="sports">体育运动</option>
                 <option value="study">学习</option>
+                <option value="other">其他</option>
               </select>
             </div>
             
@@ -105,6 +106,19 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['close', 'update', 'delete'])
 
+// 事件类型到默认颜色的映射（使用深色系，确保白色字体清晰可见）
+const typeToColor = {
+  course: '#2c3e50',       // 深蓝灰色
+  lecture: '#34495e',      // 深灰色
+  exam: '#c0392b',         // 深红色
+  meeting: '#27ae60',      // 深绿色
+  homework: '#8e44ad',     // 深紫色
+  exercise: '#16a085',     // 深青色
+  sports: '#f39c12',       // 深橙色
+  study: '#2980b9',        // 深蓝色
+  other: '#7f8c8d'         // 深灰色
+}
+
 // 表单数据
 const formData = ref({
   id: null,
@@ -115,7 +129,7 @@ const formData = ref({
   borderColor: '#000000',
   allDay: false,
   extendedProps: {
-    type: 'meeting'
+    type: 'other'
   }
 })
 
@@ -130,7 +144,7 @@ const resetForm = () => {
     borderColor: '#000000',
     allDay: false,
     extendedProps: {
-      type: 'meeting'
+      type: 'other'
     }
   }
 }
@@ -153,23 +167,33 @@ watch(() => props.event, (newEvent) => {
       return `${year}-${month}-${day}T${hours}:${minutes}`
     }
     
+    const eventType = newEvent.extendedProps.type || 'other'
+    const color = newEvent.extendedProps.isTemp ? typeToColor[eventType] : (newEvent.backgroundColor || typeToColor[eventType])
+    
     // 更新表单数据
     formData.value = {
       id: newEvent.id,
-      title: newEvent.title,
+      title: newEvent.extendedProps.fullTitle || newEvent.title, // 使用完整标题，如果有的话
       start: formatDateTime(start),
       end: formatDateTime(end),
-      backgroundColor: newEvent.extendedProps.isTemp ? '#000000' : newEvent.backgroundColor,
-      borderColor: newEvent.extendedProps.isTemp ? '#000000' : newEvent.borderColor,
+      backgroundColor: color,
+      borderColor: color,
       allDay: newEvent.allDay,
       extendedProps: {
-        type: newEvent.extendedProps.type || 'meeting'
+        type: eventType
       }
     }
   } else {
     // 重置表单
     resetForm()
   }
+}, { immediate: true })
+
+// 监听事件类型变化，自动更新颜色
+watch(() => formData.value.extendedProps.type, (newType) => {
+  const color = typeToColor[newType] || '#000000'
+  formData.value.backgroundColor = color
+  formData.value.borderColor = color
 }, { immediate: true })
 
 // 保存事件

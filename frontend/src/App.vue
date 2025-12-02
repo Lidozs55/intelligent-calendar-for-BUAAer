@@ -6,6 +6,7 @@
         <h1>智能日程助手 - 北航版</h1>
         <div class="header-actions">
           <button @click="goToSmartInput" class="header-btn">智能输入中心</button>
+          <button @click="toggleHelp" class="header-btn">帮助</button>
           <button @click="toggleSettings" class="header-btn">设置</button>
         </div>
       </header>
@@ -23,6 +24,61 @@
       <div v-if="showSettings" class="settings-overlay" @click="toggleSettings">
         <div class="settings-panel" @click.stop>
           <SettingsPanel @close="toggleSettings" />
+        </div>
+      </div>
+      
+      <!-- Help弹窗 -->
+      <div v-if="showHelp" class="settings-overlay" @click="toggleHelp">
+        <div class="settings-panel" @click.stop>
+          <div class="help-content">
+            <h2>使用帮助</h2>
+            <div class="help-section">
+              <h3>快速添加事件</h3>
+              <ul>
+                <li><strong>左键点击</strong>：在日历上左键点击任意时间点，快速创建一个1小时的临时事件</li>
+                <li><strong>拖拽选择</strong>：拖拽选择时间段，创建自定义时长的临时事件</li>
+                <li><strong>默认类型</strong>：快速添加的事件默认类型为"其他"，可在编辑时修改</li>
+              </ul>
+            </div>
+            <div class="help-section">
+              <h3>事件编辑</h3>
+              <ul>
+                <li><strong>左键点击事件</strong>：打开事件编辑弹窗</li>
+                <li><strong>拖拽调整</strong>：拖拽事件可调整时间，拖拽事件边缘可调整时长</li>
+                <li><strong>颜色自动分配</strong>：选择事件类型后，系统会自动分配对应类型的默认颜色</li>
+              </ul>
+            </div>
+            <div class="help-section">
+              <h3>快速跳转功能</h3>
+              <ul>
+                <li><strong>打开快速跳转</strong>：点击右上角的"快速跳转"按钮</li>
+                <li><strong>选择日期</strong>：在弹出的小日历中选择任意日期</li>
+                <li><strong>跳转效果</strong>：日历会自动跳转到所选日期，并显示该日期对应的七日日程</li>
+                <li><strong>月份切换</strong>：使用小日历顶部的左右箭头切换月份</li>
+              </ul>
+            </div>
+            <div class="help-section">
+              <h3>智能输入中心</h3>
+              <ul>
+                <li><strong>文本输入</strong>：直接输入任务或日程描述，转发给大语言模型自动解析</li>
+                <li><strong>语音输入</strong>：点击麦克风图标，使用语音输入</li>
+                <li><strong>图片上传</strong>：支持粘贴/拖拽/点击上传图片，自动识别图片中的文字</li>
+                <li><strong>剪贴板集成</strong>：复制文本后，系统会自动检测并添加到剪贴板队列</li>
+              </ul>
+            </div>
+            <div class="help-section">
+              <h3>设置偏好</h3>
+              <ul>
+                <li><strong>北航账号绑定</strong>：绑定北航学号和密码，自动同步课程表</li>
+                <li><strong>提醒设置</strong>：设置课程、作业、考试的提前提醒时间</li>
+                <li><strong>主题切换</strong>：支持浅色/深色主题切换</li>
+                <li><strong>精力周期</strong>：设置不同时间段的精力水平，用于智能日程安排</li>
+              </ul>
+            </div>
+            <div class="help-actions">
+              <button @click="toggleHelp" class="save-btn">关闭</button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -46,6 +102,7 @@ import notificationService from './services/notification'
 // 页面管理状态
 const currentPage = ref('home')
 const showSettings = ref(false)
+const showHelp = ref(false)
 const userStore = useUserStore()
 const taskStore = useTaskStore()
 const courseStore = useCourseStore()
@@ -77,6 +134,11 @@ const autoCheckClipboard = async () => {
 // 切换设置面板
 const toggleSettings = () => {
   showSettings.value = !showSettings.value
+}
+
+// 切换帮助弹窗
+const toggleHelp = () => {
+  showHelp.value = !showHelp.value
 }
 
 // 跳转到智能输入页面
@@ -225,6 +287,11 @@ body {
   cursor: pointer;
   font-size: 1rem;
   transition: background-color 0.3s ease;
+  margin-left: 0.5rem;
+}
+
+.header-actions button:first-child {
+  margin-left: 0;
 }
 
 .header-actions button:hover {
@@ -275,5 +342,69 @@ body {
   overflow-y: auto;
   padding: 1.5rem;
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Help内容样式 */
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.help-content h2 {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.help-section {
+  margin-bottom: 1.5rem;
+}
+
+.help-section h3 {
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.help-section ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.help-section li {
+  margin-bottom: 0.5rem;
+}
+
+.help-section strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.help-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.save-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.save-btn:hover {
+  background-color: #357abd;
 }
 </style>

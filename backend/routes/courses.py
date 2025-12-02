@@ -1,5 +1,6 @@
 import requests
 import time
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from extensions import db
 from models.course import Course
@@ -222,7 +223,7 @@ def fetch_course_schedule():
 
 @courses_bp.route('/sync_buaa', methods=['POST'])
 def sync_buaa_courses():
-    """同步北航课程表"""
+    """同步北航课程表（登录并获取考试数据）"""
     try:
         from models.entry import Entry
         from datetime import datetime

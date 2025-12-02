@@ -42,6 +42,10 @@ class SessionManager:
         """
         user_key = self.generate_user_key(user_id, buaa_id)
         
+        # 如果会话已存在，返回现有会话ID
+        if user_key in self.sessions:
+            return user_key
+        
         # 创建新的requests会话
         session = requests.Session()
         session.headers.update(self.default_headers)
