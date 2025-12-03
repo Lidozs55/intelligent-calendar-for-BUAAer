@@ -73,6 +73,20 @@
                 <li><strong>提醒设置</strong>：设置课程、作业、考试的提前提醒时间</li>
                 <li><strong>主题切换</strong>：支持浅色/深色主题切换</li>
                 <li><strong>精力周期</strong>：设置不同时间段的精力水平，用于智能日程安排</li>
+                <li><strong>API_KEY配置</strong>：在设置界面中配置OpenAI API Key，系统会优先使用此配置，否则使用系统环境变量。</li>
+              </ul>
+            </div>
+            <div class="help-section">
+              <h3>API_KEY配置指南</h3>
+              <ul>
+                <li><strong>获取API_KEY</strong>：登录OpenAI官网，在个人中心获取您的API Key。</li>
+                <li><strong>配置方式</strong>：
+                  <ul>
+                    <li>方式一：在设置界面中直接输入API Key并保存，系统会自动保存到后端.env文件。</li>
+                    <li>方式二：在服务器环境变量中设置OPENAI_API_KEY，系统会在没有配置API Key时自动使用。</li>
+                  </ul>
+                </li>
+                <li><strong>注意事项</strong>：API Key是敏感信息，请妥善保管，不要泄露给他人。</li>
               </ul>
             </div>
             <div class="help-actions">

@@ -96,12 +96,19 @@ intelligent-calendar-for-BUAAer/
    ```
 
 2. **配置文件**:
-   修改 `config.py` 文件，配置数据库连接和API密钥。
+   创建或修改 `.env` 文件，配置数据库连接和API密钥。
    
-   **配置API_KEY**:
+   **配置API_KEY的两种方式**:
    
+   **方式一：通过前端设置界面配置**
+   - 启动前端应用后，点击右上角的"设置"按钮
+   - 在"API_KEY配置"部分输入您的API Key
+   - 点击"保存API Key"，系统会自动将API Key保存到后端的 `.env` 文件中
+   
+   **方式二：手动配置 `.env` 文件**
+   - 在后端目录创建 `.env` 文件
+   - 添加 `LLM_API_KEY=your-api-key-here` 配置项
    - 阿里云百炼API_KEY获取方法：[开通服务后创建获取APIKey](https://help.aliyun.com/zh/model-studio/get-api-key)
-   - 在 `config.py` 文件中找到 `LLM_API_KEY` 配置项，填入获取到的API_KEY
    - 确保API_KEY的归属业务空间有调用相应模型的权限
 
 3. **初始化数据库**:

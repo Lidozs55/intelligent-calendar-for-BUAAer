@@ -3,11 +3,12 @@ import json
 import requests
 from dashscope import Generation
 import dashscope
+from backend.config import Config
 
 class LLMParser:
     def __init__(self):
         # 初始化阿里云百炼大模型配置
-        self.api_key = os.getenv("DASHSCOPE_API_KEY")
+        self.api_key = Config.LLM_API_KEY or os.getenv("DASHSCOPE_API_KEY") or os.getenv("LLM_API_KEY")
         dashscope.base_http_api_url = 'https://dashscope.aliyuncs.com/api/v1'
     
     def _get_occupied_slots(self, start_date):
@@ -52,18 +53,18 @@ class LLMParser:
         prompt += f"- 未来7天已占用时段：{json.dumps(occupied_slots)}\n\n"
         
         prompt += "处理要求：\n"
-        prompt += "1. **时限任务(task)**：从文本中识别有截止时间的任务\n"
+        prompt += "1. **任务(task)**：从文本中识别有截止时间的任务\n"
         prompt += "   - 提取：任务名称、截止时间\n"
         prompt += "   - 估算：预期完成时长\n"
-        prompt += "   - 安排：在截止时间前，避开已占用时段，推荐合适的一个或多个完成时间段，同时生成一个或多个伴随的entry条目\n\n"
-        prompt += "2. **固定日程(entry)**：从文本中识别时间固定的安排\n"
+        prompt += "   - 安排：在截止时间前，避开已占用时段，推荐合适的一个或多个完成时间段，同时生成一个或多个伴随的entry条目\n"
+        prompt += "2. **日程(entry)**：从文本中识别时间固定的安排\n"
         prompt += "   - 提取：日程名称（如有地址信息则包含地址信息）、开始时间、结束时间、日程类型（详见json示例）\n"
-        prompt += "   - 注意：保持原有时段不变\n"
+        prompt += "   - 安排（不一定存在）：若存在极重要的且需要前置准备的日程（如考试等）可以避开已占用时段，推荐合适的一个或多个完成时间段，同时额外生成一个或多个entry条目\n"
         
         prompt += "输出要求：\n"
         prompt += "- 仅返回JSON格式数据，不包含其他内容\n"
-        prompt += "- 确保时间安排不与已占用时段冲突\n"
-        prompt += "- 合理安排任务完成时间，考虑用户偏好\n"
+        prompt += "- 不考虑文本中直接提取的时间固定安排，确保其他时间安排不与已占用时段冲突\n"
+        prompt += "- 合理安排任务完成时间，考虑用户偏好，考虑人类基本作息规律\n"
         
         prompt += "请返回以下JSON格式：\n"
         prompt += "{\n"

@@ -24,6 +24,7 @@ def create_app(config_class=Config):
     from routes.llm import llm_bp
     from routes.schedule import schedule_bp
     from routes.entries import entries_bp
+    from routes.settings import settings_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(courses_bp, url_prefix='/api/courses')
@@ -31,6 +32,7 @@ def create_app(config_class=Config):
     app.register_blueprint(tasks_bp, url_prefix='/api/tasks')
     app.register_blueprint(llm_bp, url_prefix='/api/llm')
     app.register_blueprint(schedule_bp, url_prefix='/api/schedule')
+    app.register_blueprint(settings_bp, url_prefix='/api/settings')
     
     # 创建数据库表
     with app.app_context():

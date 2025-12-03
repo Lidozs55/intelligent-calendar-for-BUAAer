@@ -104,4 +104,10 @@ export const scheduleAPI = {
   findAvailableSlots: (data) => api.post('/schedule/find_available_slots', data)
 }
 
+// API_KEY相关API
+export const settingsAPI = {
+  // 保存API_KEY
+  saveApiKey: (data) => api.post('/settings/api_key', data)
+}
+
 export default api

@@ -96,6 +96,25 @@
         </div>
       </section>
       
+      <!-- API_KEY配置 -->
+      <section class="settings-section">
+        <h3>API_KEY配置</h3>
+        <div class="settings-form">
+          <div class="form-group">
+            <label for="api-key">OpenAI API Key</label>
+            <input 
+              type="password" 
+              id="api-key" 
+              v-model="apiKey" 
+              placeholder="请输入您的OpenAI API Key"
+            />
+            <p class="form-hint">API Key将保存在后端服务器的.env文件中，优先使用此配置，否则使用系统环境变量。</p>
+          </div>
+          
+          <button class="save-btn" @click="saveApiKey">保存API Key</button>
+        </div>
+      </section>
+      
       <!-- 主题外观设置 -->
       <section class="settings-section">
         <h3>主题外观设置</h3>
@@ -189,7 +208,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useUserStore, useSettingsStore, useCourseStore } from '../store'
-import { authAPI, coursesAPI } from '../services/api'
+import { authAPI, coursesAPI, settingsAPI } from '../services/api'
 import axios from 'axios'
 
 const userStore = useUserStore()
@@ -215,6 +234,9 @@ const defaultColor = ref(settingsStore.defaultColor)
 const energyCycle = ref({
   ...settingsStore.energyCycle
 })
+
+// API_KEY设置
+const apiKey = ref('')
 
 // 同步状态
 const syncLoading = ref(false)
@@ -347,6 +369,24 @@ const saveThemeAndColor = () => {
 const saveEnergyCycle = () => {
   settingsStore.updateEnergyCycle(energyCycle.value)
   alert('保存成功')
+}
+
+// 保存API_KEY
+const saveApiKey = async () => {
+  if (!apiKey.value.trim()) {
+    alert('请输入API_KEY')
+    return
+  }
+  
+  try {
+    const response = await settingsAPI.saveApiKey({ api_key: apiKey.value })
+    alert('API_KEY保存成功')
+    // 清空输入框
+    apiKey.value = ''
+  } catch (error) {
+    console.error('保存API_KEY失败:', error)
+    alert('保存API_KEY失败，请重试')
+  }
 }
 </script>
 
