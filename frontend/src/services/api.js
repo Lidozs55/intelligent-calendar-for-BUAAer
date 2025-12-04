@@ -104,8 +104,6 @@ export const scheduleAPI = {
   findAvailableSlots: (data) => api.post('/schedule/find_available_slots', data),
   // 保存专注记录
   saveFocusRecord: (data) => api.post('/schedule/save_focus_record', data),
-  // 安排休息
-  scheduleBreak: (data) => api.post('/schedule/schedule_break', data),
   // 获取专注历史记录
   getFocusHistory: () => api.get('/schedule/get_focus_history')
 }
