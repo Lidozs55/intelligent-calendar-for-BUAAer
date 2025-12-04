@@ -101,7 +101,13 @@ export const scheduleAPI = {
   // 自动安排任务
   autoSchedule: (data) => api.post('/schedule/auto_schedule', data),
   // 查找可用时间段
-  findAvailableSlots: (data) => api.post('/schedule/find_available_slots', data)
+  findAvailableSlots: (data) => api.post('/schedule/find_available_slots', data),
+  // 保存专注记录
+  saveFocusRecord: (data) => api.post('/schedule/save_focus_record', data),
+  // 安排休息
+  scheduleBreak: (data) => api.post('/schedule/schedule_break', data),
+  // 获取专注历史记录
+  getFocusHistory: () => api.get('/schedule/get_focus_history')
 }
 
 // API_KEY相关API

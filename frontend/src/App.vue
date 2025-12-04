@@ -6,6 +6,7 @@
         <h1>智能日程助手 - 北航版</h1>
         <div class="header-actions">
           <button @click="goToSmartInput" class="header-btn">智能输入中心</button>
+          <button @click="enterFocusMode" class="header-btn">专注模式</button>
           <button @click="toggleHelp" class="header-btn">帮助</button>
           <button @click="toggleSettings" class="header-btn">设置</button>
         </div>
@@ -13,7 +14,7 @@
       
       <main class="app-main">
         <aside class="sidebar">
-          <TaskSidebar @add-task="goToSmartInput" />
+          <TaskSidebar @add-task="goToSmartInput" @start-focus="startFocusFromTask" />
         </aside>
         
         <section class="main-content">
@@ -89,12 +90,24 @@
                 <li><strong>注意事项</strong>：API Key是敏感信息，请妥善保管，不要泄露给他人。</li>
               </ul>
             </div>
+            <div class="help-section">
+              <h3>专注模式</h3>
+              <ul>
+                <li><strong>进入专注模式</strong>：点击顶部导航栏的"专注模式"按钮</li>
+                <li><strong>预设时长</strong>：支持25/45/60/90分钟的预设时长，也可自定义5-180分钟</li>
+                <li><strong>全屏专注</strong>：进入后会显示全屏专注界面，减少视觉干扰</li>
+                <li><strong>专注记录</strong>：系统会自动记录您的专注时长，并保存到后台</li>
+              </ul>
+            </div>
             <div class="help-actions">
               <button @click="toggleHelp" class="save-btn">关闭</button>
             </div>
           </div>
         </div>
       </div>
+      
+      <!-- 专注模式组件 -->
+      <FocusMode ref="focusModeRef" />
     </template>
     
     <!-- 智能输入页面 -->
@@ -110,6 +123,7 @@ import Home from './views/Home.vue'
 import SmartInputPage from './views/SmartInputPage.vue'
 import TaskSidebar from './components/TaskSidebar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import FocusMode from './components/FocusMode.vue'
 import { useUserStore, useTaskStore, useCourseStore, useSettingsStore, useClipboardStore } from './store'
 import notificationService from './services/notification'
 
@@ -117,6 +131,7 @@ import notificationService from './services/notification'
 const currentPage = ref('home')
 const showSettings = ref(false)
 const showHelp = ref(false)
+const focusModeRef = ref(null)
 const userStore = useUserStore()
 const taskStore = useTaskStore()
 const courseStore = useCourseStore()
@@ -281,6 +296,16 @@ const toggleSettings = () => {
 // 切换帮助弹窗
 const toggleHelp = () => {
   showHelp.value = !showHelp.value
+}
+
+// 进入专注模式
+const enterFocusMode = () => {
+  focusModeRef.value.openFocusMode()
+}
+
+// 从任务列表进入专注模式
+const startFocusFromTask = (taskInfo) => {
+  focusModeRef.value.openFocusMode(taskInfo)
 }
 
 // 跳转到智能输入页面

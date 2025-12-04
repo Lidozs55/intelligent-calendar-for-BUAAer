@@ -3,7 +3,7 @@ import json
 import requests
 from dashscope import Generation
 import dashscope
-from backend.config import Config
+from config import Config
 
 class LLMParser:
     def __init__(self):

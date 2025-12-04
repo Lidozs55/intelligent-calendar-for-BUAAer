@@ -125,6 +125,7 @@
           <div class="task-actions">
             <button @click="editTask(task)">编辑</button>
             <button @click="deleteTask(task.id)">删除</button>
+            <button class="focus-btn" @click="startFocus(task)">开始专注</button>
           </div>
         </div>
       </div>
@@ -465,10 +466,23 @@ const hideUpcomingTasks = () => {
   showUpcomingTasks.value = false
 }
 
+// 开始专注模式
+const startFocus = (task) => {
+  // 触发事件，将任务信息传递给父组件
+  emit('start-focus', {
+    title: task.title,
+    id: task.id,
+    type: task.task_type
+  })
+}
+
 // 初始化加载任务
 onMounted(() => {
   loadTasks()
 })
+
+// 定义组件的事件
+const emit = defineEmits(['add-task', 'start-focus'])
 </script>
 
 <style scoped>
