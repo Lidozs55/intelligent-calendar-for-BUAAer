@@ -724,11 +724,12 @@ const importLocalAudio = (event) => {
 };
 
 const selectSoundPreset = async (soundId) => {
+  // 立即更新selectedSound，确保按钮样式切换
+  selectedSound.value = soundId;
+  
   if (soundId === 'none') {
     // 如果选择的是"关闭环境音"，直接停止所有音效
     await stopAllSounds();
-    // 更新selectedSound值，确保按钮样式正确切换
-    selectedSound.value = 'none';
     isSoundPlaying.value = false;
   } else {
     // 否则播放选中的音效

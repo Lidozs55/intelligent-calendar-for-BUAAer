@@ -83,14 +83,15 @@ const handleUseClipboardItem = (text) => {
 }
 
 .back-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
+    background-color: rgba(255, 255, 255, 0.3);
+  }
 
-.page-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 500;
-}
+  .page-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: white; /* 设置为白色，与蓝色背景形成对比 */
+  }
 
 .page-content {
   flex: 1;
