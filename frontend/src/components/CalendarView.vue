@@ -543,10 +543,17 @@ const adjustInitialDate = () => {
 }
 
 // 从API获取数据并更新日历
-const fetchDataAndUpdateCalendar = async () => {
-  // 从API获取所有条目数据
+const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
+  // 设置加载状态
+  isLoading.value = true
+  loadingStatus.value = '正在获取日历数据...'
+  
   try {
-    const response = await entriesAPI.getEntries()
+    // 格式化日期为YYYY-MM-DD格式
+    const formattedDate = date.toISOString().split('T')[0]
+    
+    // 1. 获取指定日期范围内的entries
+    const response = await entriesAPI.getEntriesByDate(formattedDate)
     // 处理API返回的数据结构，确保获取到正确的条目数组
     const entries = Array.isArray(response) ? response : (response.entries || [])
     // 更新entryStore.entries数组
@@ -554,6 +561,32 @@ const fetchDataAndUpdateCalendar = async () => {
     
     // 更新日历事件
     updateCalendarEvents(entries)
+    
+    // 2. 同步北航课程表（复用SettingsPanel.vue的实现）
+    try {
+      loadingStatus.value = '正在同步课程表...'
+      
+      // 获取北航学号
+      const buaaIdResponse = await authAPI.getBuaaId()
+      if (buaaIdResponse.buaa_id) {
+        // 调用同步课程表API
+        await coursesAPI.syncBuaaCourses({
+          buaa_id: buaaIdResponse.buaa_id,
+          password: '', // 密码由后端存储，前端不需要传递
+          date: formattedDate
+        })
+        
+        // 3. 同步成功后，再次获取entries刷新前端
+        loadingStatus.value = '课程表同步成功，正在刷新日历...'
+        const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+        const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
+        entryStore.setEntries(refreshedEntries)
+        updateCalendarEvents(refreshedEntries)
+      }
+    } catch (syncError) {
+      console.error('同步课程表失败:', syncError)
+      // 同步失败不影响日历显示，继续执行
+    }
   } catch (error) {
     console.error('加载条目失败:', error)
     
@@ -562,6 +595,10 @@ const fetchDataAndUpdateCalendar = async () => {
       const calendarApi = calendarRef.value.getApi()
       calendarApi.removeAllEvents()
     }
+  } finally {
+    // 关闭加载状态
+    isLoading.value = false
+    loadingStatus.value = ''
   }
 }
 
@@ -659,8 +696,13 @@ const updateCalendarEvents = (entries) => {
 const handleEventUpdate = async (eventData) => {
   console.log('更新事件:', eventData)
   
-  // 重新从API获取数据并更新日历
-  await fetchDataAndUpdateCalendar()
+  // 获取当前视图的中心日期
+  if (calendarRef.value) {
+    const calendarApi = calendarRef.value.getApi()
+    const currentDate = calendarApi.view.currentStart
+    // 重新从API获取数据并更新日历
+    await fetchDataAndUpdateCalendar(currentDate)
+  }
   
   // 确保临时事件被销毁
   destroyTempEvent()
@@ -669,8 +711,13 @@ const handleEventUpdate = async (eventData) => {
 // 处理事件删除
 const handleEventDelete = async (eventId) => {
   console.log('删除事件:', eventId)
-  // 重新从API获取数据并更新日历
-  await fetchDataAndUpdateCalendar()
+  // 获取当前视图的中心日期
+  if (calendarRef.value) {
+    const calendarApi = calendarRef.value.getApi()
+    const currentDate = calendarApi.view.currentStart
+    // 重新从API获取数据并更新日历
+    await fetchDataAndUpdateCalendar(currentDate)
+  }
 }
 
 // 修复日历标题，将结束日期减1天

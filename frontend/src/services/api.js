@@ -68,6 +68,8 @@ export const coursesAPI = {
 export const entriesAPI = {
   // 获取所有条目
   getEntries: () => api.get('/entries'),
+  // 按日期范围获取条目
+  getEntriesByDate: (date) => api.get(`/entries/${date}`),
   // 添加新条目
   addEntry: (data) => api.post('/entries', data),
   // 更新条目

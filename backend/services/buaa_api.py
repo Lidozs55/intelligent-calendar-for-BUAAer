@@ -570,6 +570,16 @@ def parse_course_data(course_data, date=None):
             course_time = course_item['time']
             classroom = course_item['place'].strip() if course_item['place'] else ''
             
+            # 从bizName中提取教师信息（如果包含）
+            teacher = '未知'
+            if '(' in course_name and ')' in course_name:
+                # 尝试从课程名称中提取教师信息，格式：课程名称(教师)
+                teacher_match = re.search(r'\(([^)]+)\)', course_name)
+                if teacher_match:
+                    teacher = teacher_match.group(1).strip()
+                    # 去除教师信息后的课程名称
+                    course_name = course_name.replace(teacher_match.group(0), '').strip()
+            
             # 解析时间格式 (HH:MM-HH:MM)
             try:
                 start_time_str, end_time_str = course_time.split('-')
@@ -584,7 +594,7 @@ def parse_course_data(course_data, date=None):
             # 构建解析后的课程数据（兼容旧格式）
             parsed_course = {
                 'kcmc': course_name,
-                'jsxm': '未知',  # 新格式中没有教师信息
+                'jsxm': teacher,  # 提取或默认教师信息
                 'jxlh': classroom.split('楼')[0] + '楼' if '楼' in classroom else classroom,  # 提取教学楼
                 'jash': classroom.split('楼')[-1] if '楼' in classroom else classroom,  # 提取教室号
                 'kssj': start_time_str,

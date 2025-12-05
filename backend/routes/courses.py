@@ -274,7 +274,7 @@ def sync_buaa_courses():
             return jsonify({"status": "error", "message": "需要登录"}), 401
         
         # 循环获取接下来14天的课程数据
-        for i in range(14):
+        for i in range(7):
             # 计算当前日期
             current_date = today + timedelta(days=i)
             date_str = current_date.strftime('%Y-%m-%d')
@@ -308,10 +308,10 @@ def sync_buaa_courses():
             all_courses.extend(parsed_courses)
             
             # 等待一段时间，避免请求过于频繁
-            time.sleep(0.5)
+            time.sleep(0.2)
         
-        # 调试信息
-        print(f"总共获取到的课程数量: {len(all_courses)}")
+        # 日志：总共获取到的课程数量
+        print(f"[DB SYNC] 总共获取到的课程数量: {len(all_courses)}")
         
         # 对课程数据进行去重
         # 使用课程名称、教师、教室、开始时间、结束时间和星期几作为去重依据
@@ -326,9 +326,13 @@ def sync_buaa_courses():
                 seen_courses.add(course_key)
                 unique_courses.append(course)
         
-        # 调试信息
-        print(f"去重后的课程数量: {len(unique_courses)}")
-        print(f"去重后的课程数据: {unique_courses}")
+        # 日志：去重后的课程数据
+        print(f"[DB SYNC] 去重后的课程数量: {len(unique_courses)}")
+        # 仅输出课程基本信息，不输出完整数据
+        for i, course in enumerate(unique_courses[:5]):  # 仅显示前5条
+            print(f"[DB SYNC] 课程 {i+1}: {course['kcmc']} - {course['jsxm']} - {course['kssj']}-{course['jssj']}")
+        if len(unique_courses) > 5:
+            print(f"[DB SYNC] ... 还有 {len(unique_courses)-5} 条课程数据")
         
         # 调用一次考试信息API，只获取一次
         exam_data = []
@@ -342,48 +346,119 @@ def sync_buaa_courses():
             # 检查考试信息获取结果
             if not exam_result.get('need_login', False) and 'data' in exam_result:
                 exam_data = exam_result['data']['exams']
-                print(f"获取到的考试数据: {exam_data}")
+                # 日志：获取到的考试数据
+                print(f"[DB SYNC] 获取到的考试数量: {len(exam_data)}")
+                for i, exam in enumerate(exam_data):  # 显示所有考试
+                    print(f"[DB SYNC] 考试 {i+1}: {exam['courseName']} - {exam['examDate']} {exam['startTime']}-{exam['endTime']}")
         except Exception as e:
-            print(f"获取考试信息失败: {str(e)}")
-        
-        # 先删除所有课程数据和entry数据
-        Course.query.delete()
-        Entry.query.delete()
+            print(f"[DB SYNC] 获取考试信息失败: {str(e)}")
         
         # 保存课程数据
         if unique_courses:
-            # 遍历解析后的课程数据并保存为Entry
+            # 日志：开始保存课程数据
+            print(f"[DB SYNC] 开始保存课程数据...")
+            
+            # 遍历解析后的课程数据并保存
+            course_add_count = 0
+            course_update_count = 0
+            entry_add_count = 0
+            entry_update_count = 0
+            
             for course_item in unique_courses:
                 # 解析教室信息
                 classroom = f"{course_item['jxlh']}{course_item['jash']}"
                 
-                # 解析原始日期
-                if course_item.get('original_date'):
-                    try:
-                        course_date = datetime.strptime(course_item['original_date'], '%Y-%m-%d').date()
-                        
-                        # 构建完整的开始和结束时间
-                        start_time_str = f"{course_item['original_date']}T{course_item['kssj']}:00"
-                        end_time_str = f"{course_item['original_date']}T{course_item['jssj']}:00"
-                        
-                        # 创建Entry对象
-                        new_entry = Entry(
-                            title=course_item['kcmc'],
-                            description=f"教师: {course_item['jsxm']}\n教室: {classroom}",
-                            entry_type='course',
-                            start_time=datetime.fromisoformat(start_time_str),
-                            end_time=datetime.fromisoformat(end_time_str),
-                            color='#4a90e2'
+                # 解析时间字符串为time对象
+                from datetime import time as time_obj
+                start_time_parts = course_item['kssj'].split(':')
+                end_time_parts = course_item['jssj'].split(':')
+                
+                start_time = time_obj(int(start_time_parts[0]), int(start_time_parts[1]))
+                end_time = time_obj(int(end_time_parts[0]), int(end_time_parts[1]))
+                
+                try:
+                    # 1. 处理Course表：增量更新
+                    # 查找是否已存在相同的课程
+                    existing_course = Course.query.filter(
+                        Course.course_name == course_item['kcmc'],
+                        Course.teacher == course_item['jsxm'],
+                        Course.classroom == classroom,
+                        Course.start_time == start_time,
+                        Course.end_time == end_time,
+                        Course.day_of_week == course_item['xqj']
+                    ).first()
+                    
+                    if existing_course:
+                        # 如果存在，更新现有课程
+                        existing_course.week_range = course_item['zcd']
+                        course_update_count += 1
+                    else:
+                        # 如果不存在，添加新课程
+                        new_course = Course(
+                            course_name=course_item['kcmc'],
+                            teacher=course_item['jsxm'],
+                            classroom=classroom,
+                            start_time=start_time,
+                            end_time=end_time,
+                            day_of_week=course_item['xqj'],
+                            week_range=course_item['zcd']
                         )
-                        
-                        # 保存到数据库
-                        db.session.add(new_entry)
-                    except ValueError as e:
-                        print(f"解析日期 {course_item['original_date']} 失败: {str(e)}")
-                        continue
+                        db.session.add(new_course)
+                        course_add_count += 1
+                    
+                    # 2. 处理Entry表：增量更新（如果有原始日期）
+                    if course_item.get('original_date'):
+                        try:
+                            # 构建完整的开始和结束时间
+                            start_time_str = f"{course_item['original_date']}T{course_item['kssj']}:00"
+                            end_time_str = f"{course_item['original_date']}T{course_item['jssj']}:00"
+                            start_datetime = datetime.fromisoformat(start_time_str)
+                            end_datetime = datetime.fromisoformat(end_time_str)
+                            print(f"[DB SYNC] 处理条目：{course_item['kcmc']} 开始时间 {start_datetime} 结束时间 {end_datetime}")
+                            # 查找是否已存在相同的条目
+                            existing_entry = Entry.query.filter(
+                                Entry.title == course_item['kcmc'],
+                                Entry.entry_type == 'course',
+                                Entry.start_time == start_datetime,
+                                Entry.end_time == end_datetime
+                            ).first()
+                            
+                            if existing_entry:
+                                # 如果存在，更新现有条目
+                                print(f"[DB SYNC] 更新条目：{existing_entry.title} 开始时间 {existing_entry.start_time} 结束时间 {existing_entry.end_time}")
+                                existing_entry.description = f"教师: {course_item['jsxm']}\n教室: {classroom}"
+                                existing_entry.color = '#4a90e2'
+                                entry_update_count += 1
+                            else:
+                                # 如果不存在，添加新条目
+                                new_entry = Entry(
+                                    title=course_item['kcmc'],
+                                    description=f"教师: {course_item['jsxm']}\n教室: {classroom}",
+                                    entry_type='course',
+                                    start_time=start_datetime,
+                                    end_time=end_datetime,
+                                    color='#4a90e2'
+                                )
+                                db.session.add(new_entry)
+                                entry_add_count += 1
+                        except ValueError as e:
+                            print(f"[DB SYNC] 解析日期 {course_item['original_date']} 失败: {str(e)}")
+                            continue
+                except Exception as e:
+                    print(f"[DB SYNC] 保存课程数据失败: {str(e)}")
+                    continue
+            
+            # 日志：课程数据保存结果
+            print(f"[DB SYNC] 条目数据保存完成：新增 {entry_add_count} 条，更新 {entry_update_count} 条课程条目")
         
         # 保存考试数据
         if exam_data:
+            # 日志：开始保存考试数据...
+            print(f"[DB SYNC] 开始保存考试数据...")
+            
+            exam_add_count = 0
+            exam_update_count = 0
+            
             # 遍历考试数据并保存为Entry
             for exam_item in exam_data:
                 try:
@@ -393,25 +468,50 @@ def sync_buaa_courses():
                     # 构建完整的开始和结束时间
                     start_time_str = f"{exam_date_str}T{exam_item['startTime']}:00"
                     end_time_str = f"{exam_date_str}T{exam_item['endTime']}:00"
+                    start_datetime = datetime.fromisoformat(start_time_str)
+                    end_datetime = datetime.fromisoformat(end_time_str)
                     
-                    # 创建Entry对象
-                    new_entry = Entry(
-                        title=exam_item['courseName'],
-                        description=f"考试地点: {exam_item['examPlace']}\n考试时间: {exam_item['examTimeDescription']}",
-                        entry_type='exam',
-                        start_time=datetime.fromisoformat(start_time_str),
-                        end_time=datetime.fromisoformat(end_time_str),
-                        color='#ff4444'
-                    )
+                    # 查找是否已存在相同的考试条目
+                    existing_exam = Entry.query.filter(
+                        Entry.title == exam_item['courseName'],
+                        Entry.entry_type == 'exam',
+                        Entry.start_time == start_datetime,
+                        Entry.end_time == end_datetime
+                    ).first()
                     
-                    # 保存到数据库
-                    db.session.add(new_entry)
+                    if existing_exam:
+                        # 如果存在，更新现有考试条目
+                        existing_exam.description = f"考试地点: {exam_item['examPlace']}\n考试时间: {exam_item['examTimeDescription']}"
+                        existing_exam.color = '#ff4444'
+                        exam_update_count += 1
+                    else:
+                        # 如果不存在，添加新考试条目
+                        new_entry = Entry(
+                            title=exam_item['courseName'],
+                            description=f"考试地点: {exam_item['examPlace']}\n考试时间: {exam_item['examTimeDescription']}",
+                            entry_type='exam',
+                            start_time=start_datetime,
+                            end_time=end_datetime,
+                            color='#ff4444'
+                        )
+                        db.session.add(new_entry)
+                        exam_add_count += 1
                 except ValueError as e:
-                    print(f"解析考试日期时间失败: {str(e)}")
+                    print(f"[DB SYNC] 解析考试日期时间失败: {str(e)}")
                     continue
+                except Exception as e:
+                    print(f"[DB SYNC] 保存考试数据失败: {str(e)}")
+                    continue
+            
+            # 日志：考试数据保存结果
+            print(f"[DB SYNC] 考试数据保存完成：新增 {exam_add_count} 条，更新 {exam_update_count} 条考试条目")
         
         # 提交事务
+        print(f"[DB SYNC] 开始提交数据库事务...")
         db.session.commit()
+        
+        # 日志：事务提交成功
+        print(f"[DB SYNC] 数据库事务提交成功！")
         
         # 返回结果
         return jsonify({
