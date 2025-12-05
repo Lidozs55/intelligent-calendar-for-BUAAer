@@ -14,7 +14,7 @@ courses_bp = Blueprint('courses', __name__)
 @courses_bp.route('/', methods=['GET'])
 def get_courses():
     """获取课程列表"""
-    # 获取所有课程，不按用户过滤
+    # 获取所有课程
     courses = Course.query.all()
     
     # 转换为JSON格式
@@ -224,11 +224,18 @@ def fetch_course_schedule():
 @courses_bp.route('/sync_buaa', methods=['POST'])
 def sync_buaa_courses():
     """同步北航课程表（登录并获取考试数据）"""
+    # 调用带日期参数的同步函数，默认使用当前日期
+    return sync_buaa_courses_by_date()
+
+@courses_bp.route('/sync_buaa/<string:date>', methods=['POST'])
+def sync_buaa_courses_by_date(date=None):
+    """同步北航课程表（按指定日期开始同步）"""
     try:
         from models.entry import Entry
-        from datetime import datetime
+        from datetime import datetime, timedelta
         
-        data = request.get_json()
+        # 解析请求数据
+        data = request.get_json() if request.is_json else {}
         buaa_id = data.get('buaa_id')
         password = data.get('password')
         
@@ -263,9 +270,18 @@ def sync_buaa_courses():
                 traceback.print_exc()
                 return jsonify({"status": "error", "message": "登录过程中发生未知错误"}), 500
         
+        # 确定起始日期
+        if date:
+            # 使用传入的日期作为起始日期
+            try:
+                today = datetime.strptime(date, '%Y-%m-%d')+timedelta(days=8)
+            except ValueError:
+                return jsonify({"status": "error", "message": "日期格式错误，应为YYYY-MM-DD"}), 400
+        else:
+            # 默认使用当前日期
+            today = datetime.now()
+        
         # 一次性同步14天内的所有课程内容
-        from datetime import timedelta
-        today = datetime.now()
         all_courses = []
         
         # 先检查登录状态
@@ -279,11 +295,11 @@ def sync_buaa_courses():
             current_date = today + timedelta(days=i)
             date_str = current_date.strftime('%Y-%m-%d')
             
-            print(f"使用真实API获取课程数据，日期: {date_str}")
+            print(f"获取课程数据，日期: {date_str}")
             result = buaa_api_client.fetch_course_schedule(user_key, date_str)
             
             if result.get('need_login'):
-                print(f"获取日期 {date_str} 的课程数据时需要重新登录")
+                print(f"需要重新登录")
                 return jsonify({"status": "error", "message": "需要登录"}), 401
             
             if result.get('error'):
@@ -293,7 +309,6 @@ def sync_buaa_courses():
             
             # 获取课程数据，注意：result['data']['data']才是课程列表
             course_data = result.get('data', {}).get('data', [])
-            print(f"日期 {date_str} 获取到的原始课程数据: {course_data}")
             
             # 构建API返回的数据格式，兼容parse_course_data函数
             api_response = {
@@ -328,11 +343,6 @@ def sync_buaa_courses():
         
         # 日志：去重后的课程数据
         print(f"[DB SYNC] 去重后的课程数量: {len(unique_courses)}")
-        # 仅输出课程基本信息，不输出完整数据
-        for i, course in enumerate(unique_courses[:5]):  # 仅显示前5条
-            print(f"[DB SYNC] 课程 {i+1}: {course['kcmc']} - {course['jsxm']} - {course['kssj']}-{course['jssj']}")
-        if len(unique_courses) > 5:
-            print(f"[DB SYNC] ... 还有 {len(unique_courses)-5} 条课程数据")
         
         # 调用一次考试信息API，只获取一次
         exam_data = []
@@ -348,16 +358,11 @@ def sync_buaa_courses():
                 exam_data = exam_result['data']['exams']
                 # 日志：获取到的考试数据
                 print(f"[DB SYNC] 获取到的考试数量: {len(exam_data)}")
-                for i, exam in enumerate(exam_data):  # 显示所有考试
-                    print(f"[DB SYNC] 考试 {i+1}: {exam['courseName']} - {exam['examDate']} {exam['startTime']}-{exam['endTime']}")
         except Exception as e:
             print(f"[DB SYNC] 获取考试信息失败: {str(e)}")
         
         # 保存课程数据
         if unique_courses:
-            # 日志：开始保存课程数据
-            print(f"[DB SYNC] 开始保存课程数据...")
-            
             # 遍历解析后的课程数据并保存
             course_add_count = 0
             course_update_count = 0
@@ -414,7 +419,6 @@ def sync_buaa_courses():
                             end_time_str = f"{course_item['original_date']}T{course_item['jssj']}:00"
                             start_datetime = datetime.fromisoformat(start_time_str)
                             end_datetime = datetime.fromisoformat(end_time_str)
-                            print(f"[DB SYNC] 处理条目：{course_item['kcmc']} 开始时间 {start_datetime} 结束时间 {end_datetime}")
                             # 查找是否已存在相同的条目
                             existing_entry = Entry.query.filter(
                                 Entry.title == course_item['kcmc'],
@@ -425,7 +429,6 @@ def sync_buaa_courses():
                             
                             if existing_entry:
                                 # 如果存在，更新现有条目
-                                print(f"[DB SYNC] 更新条目：{existing_entry.title} 开始时间 {existing_entry.start_time} 结束时间 {existing_entry.end_time}")
                                 existing_entry.description = f"教师: {course_item['jsxm']}\n教室: {classroom}"
                                 existing_entry.color = '#4a90e2'
                                 entry_update_count += 1
@@ -442,7 +445,6 @@ def sync_buaa_courses():
                                 db.session.add(new_entry)
                                 entry_add_count += 1
                         except ValueError as e:
-                            print(f"[DB SYNC] 解析日期 {course_item['original_date']} 失败: {str(e)}")
                             continue
                 except Exception as e:
                     print(f"[DB SYNC] 保存课程数据失败: {str(e)}")
@@ -453,9 +455,6 @@ def sync_buaa_courses():
         
         # 保存考试数据
         if exam_data:
-            # 日志：开始保存考试数据...
-            print(f"[DB SYNC] 开始保存考试数据...")
-            
             exam_add_count = 0
             exam_update_count = 0
             
@@ -507,11 +506,7 @@ def sync_buaa_courses():
             print(f"[DB SYNC] 考试数据保存完成：新增 {exam_add_count} 条，更新 {exam_update_count} 条考试条目")
         
         # 提交事务
-        print(f"[DB SYNC] 开始提交数据库事务...")
         db.session.commit()
-        
-        # 日志：事务提交成功
-        print(f"[DB SYNC] 数据库事务提交成功！")
         
         # 返回结果
         return jsonify({

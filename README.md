@@ -186,24 +186,41 @@ intelligent-calendar-for-BUAAer/
 
 ## API文档
 
+### 认证管理
+
+- `POST /api/auth/buaa_id` - 设置北航学号
+- `GET /api/auth/buaa_id` - 获取北航学号
+
+### 课程管理
+
+- `GET /api/courses` - 获取课程列表
+- `POST /api/courses` - 添加课程
+- `PUT /api/courses/<id>` - 更新课程
+- `DELETE /api/courses/<id>` - 删除课程
+- `POST /api/courses/init_session` - 初始化会话
+- `POST /api/courses/check_login` - 检查登录状态
+- `POST /api/courses/process_login_callback` - 处理登录回调
+- `GET /api/courses/fetch_course_schedule` - 获取课程表
+- `POST /api/courses/sync_buaa` - 同步北航课程表
+- `POST /api/courses/sync_buaa/<date>` - 按指定日期同步北航课程表
+
+### 日历条目
+
+- `GET /api/entries` - 获取所有条目
+- `POST /api/entries` - 创建日历条目
+- `PUT /api/entries/<id>` - 更新日历条目
+- `DELETE /api/entries/<id>` - 删除日历条目
+- `GET /api/entries/courses` - 获取课程类型的条目
+- `GET /api/entries/<date>` - 获取指定日期及之后7天内的所有条目
+
 ### 任务管理
 
 - `GET /api/tasks` - 获取任务列表
 - `POST /api/tasks` - 创建任务
 - `PUT /api/tasks/<id>` - 更新任务
 - `DELETE /api/tasks/<id>` - 删除任务
-
-### 日历条目
-
-- `GET /api/entries` - 获取日历条目
-- `POST /api/entries` - 创建日历条目
-- `PUT /api/entries/<id>` - 更新日历条目
-- `DELETE /api/entries/<id>` - 删除日历条目
-
-### LLM服务
-
-- `POST /api/llm/parse` - 解析自然语言任务
-- `POST /api/llm/schedule` - 生成智能日程
+- `PUT /api/tasks/<id>/complete` - 标记任务为完成
+- `PUT /api/tasks/<id>/uncomplete` - 标记任务为未完成
 
 ## 功能模块详细说明
 

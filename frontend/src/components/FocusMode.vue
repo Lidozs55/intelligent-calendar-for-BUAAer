@@ -104,7 +104,7 @@
           <!-- 音效单独音量控制 -->
           <div class="individual-volume-controls" v-if="selectedSound !== 'none'">
             <h4>当前音效音量</h4>
-            <div class="individual-volume" v-for="preset in soundPresets" :key="preset.id" v-if="preset.id === selectedSound">
+            <div class="individual-volume" v-for="preset in soundPresets" :key="preset?.id" v-if="preset && preset.id === selectedSound">
               <label :for="`volume-${preset.id}`">{{ preset.icon }} {{ preset.name }}：</label>
               <input 
                 :id="`volume-${preset.id}`"
@@ -128,13 +128,13 @@
             <!-- 本地音频导入 -->
             <div class="audio-import">
               <input 
+                ref="audioFileInput"
                 type="file" 
-                id="audio-file" 
                 accept="audio/*" 
                 @change="importLocalAudio"
                 style="display: none;"
               />
-              <button class="control-btn" @click="document.getElementById('audio-file').click()">
+              <button class="control-btn" @click="openFileDialog">
                 导入本地音频
               </button>
             </div>
@@ -211,15 +211,22 @@ const audioContext = ref(null)
 const audioSources = ref({})
 const gainNodes = ref({})
 
-// 预设音效列表 - 使用用户提供的外部URL和图标
+// 监听selectedSound变化，直接展示样式切换日志
+watch(selectedSound, (newValue, oldValue) => {
+  console.log('🎨 样式切换日志：', oldValue, '→', newValue);
+});
+
+// 音频文件输入的ref
+const audioFileInput = ref(null)
+
+// 预设音效列表 - 使用本地音频文件
 const soundPresets = ref([ 
-  { id: 'none', name: '暂无音效', icon: '🔇', playing: false, volume: 0, url: '' }, 
-  { id: 'rain', name: '雨声', icon: '🌧️', playing: false, volume: 40, url: 'https://assets.mixkit.co/active_storage/sfx/2390/2390-preview.mp3' }, 
-  { id: 'cafe', name: '咖啡馆', icon: '☕', playing: false, volume: 35, url: 'https://assets.mixkit.co/active_storage/sfx/2313/2313-preview.mp3' }, 
-  { id: 'forest', name: '森林', icon: '🌲', playing: false, volume: 40, url: 'https://assets.mixkit.co/active_storage/sfx/1237/1237-preview.mp3' }, 
-  { id: 'ocean', name: '海浪', icon: '🌊', playing: false, volume: 35, url: 'https://assets.mixkit.co/active_storage/sfx/1451/1451-preview.mp3' }, 
-  { id: 'fire', name: '壁炉', icon: '🔥', playing: false, volume: 38, url: 'https://assets.mixkit.co/active_storage/sfx/1423/1423-preview.mp3' }, 
-  { id: 'wind', name: '风声', icon: '💨', playing: false, volume: 35, url: 'https://assets.mixkit.co/active_storage/sfx/1438/1438-preview.mp3' } 
+  { id: 'none', name: '关闭环境音', icon: '🔇', playing: false, volume: 0, url: '' }, 
+  { id: 'rain', name: '雨声', icon: '🌧️', playing: false, volume: 70, url: '/sound/rain.mp3' }, 
+  { id: 'fire', name: '火焰', icon: '🔥', playing: false, volume: 70, url: '/sound/fire.mp3' }, 
+  { id: 'wave', name: '海浪', icon: '🌊', playing: false, volume: 65, url: '/sound/wave.mp3' }, 
+  { id: 'wind', name: '风声', icon: '💨', playing: false, volume: 65, url: '/sound/wind.mp3' },
+  { id: 'local', name: '本地音频', icon: '📁', playing: false, volume: 70, url: '' } 
 ])
 
 // 本地导入的音频文件
@@ -255,153 +262,80 @@ const formatDuration = (seconds) => {
 
 // 关键修复2：专注计时器逻辑
 const startTimer = () => {
-  console.log('====================================');
-  console.log('🔢 startTimer 函数调用');
-  console.log('调用时状态:');
-  console.log('   isBreakMode:', isBreakMode.value);
-  console.log('   isRunning:', isRunning.value);
-  console.log('   timerMode:', timerMode.value);
-  
   // 设置运行状态
   isRunning.value = true;
-  console.log('   设置 isRunning 为 true');
   
   // 清除已有计时器
   if (timerInterval.value) {
-    console.log('   清除已有计时器:', timerInterval.value);
     clearInterval(timerInterval.value);
     timerInterval.value = null;
-    console.log('   计时器已清除');
   }
   
   // 检查当前是否处于休息模式
   if (isBreakMode.value) {
-    console.warn('⚠️  尝试在休息模式下启动专注计时器，已阻止');
     isRunning.value = false;
-    console.log('   设置 isRunning 为 false');
     return;
   }
   
-  console.log('✅ 准备启动新计时器');
-  console.log('   启动参数:');
-  console.log('   - 模式:', timerMode.value);
-  console.log('   - 剩余时间:', remainingTime.value);
-  console.log('   - 已用时间:', elapsedTime.value);
-  
   // 启动新计时器
-  console.log('⏱️  调用 setInterval 启动计时器...');
   timerInterval.value = setInterval(() => {
-    // 每次执行都打印状态，便于调试
-    console.log('⏱️  计时器回调执行:');
-    console.log('   - isRunning:', isRunning.value);
-    console.log('   - isBreakMode:', isBreakMode.value);
-    console.log('   - timerMode:', timerMode.value);
-    console.log('   - remainingTime:', remainingTime.value);
-    console.log('   - elapsedTime:', elapsedTime.value);
     
     // 检查是否应该继续运行
-    if (!isRunning.value) {
-      console.log('⏹️  计时器停止：isRunning 为 false');
+    if (!isRunning.value || isBreakMode.value) {
       if (timerInterval.value) {
         clearInterval(timerInterval.value);
         timerInterval.value = null;
-        console.log('   计时器已清除');
-      }
-      return;
-    }
-    
-    if (isBreakMode.value) {
-      console.log('⏹️  计时器停止：isBreakMode 为 true');
-      if (timerInterval.value) {
-        clearInterval(timerInterval.value);
-        timerInterval.value = null;
-        console.log('   计时器已清除');
       }
       return;
     }
     
     // 执行计时逻辑
     if (timerMode.value === 'countdown') {
-      console.log('⏰ 执行倒计时逻辑');
       if (remainingTime.value > 0) {
         remainingTime.value--;
-        console.log('   ⏳ 倒计时更新:', remainingTime.value);
       } else {
-        console.log('🎉 倒计时结束');
         handleTimerComplete();
       }
     } else {
-      console.log('⏰ 执行正计时逻辑');
       elapsedTime.value++;
-      console.log('   ⏳ 正计时更新:', elapsedTime.value);
     }
     
   }, 1000);
-  
-  console.log('✅ 计时器已启动，interval ID:', timerInterval.value);
-  console.log('====================================');
 };
 
 // 关键修复3：休息计时器逻辑
 const startBreakTimer = () => {
-  console.log('====================================');
-  console.log('☕ startBreakTimer 函数调用');
-  console.log('调用时状态:');
-  console.log('   isRunning:', isRunning.value);
-  console.log('   breakTimerInterval:', breakTimerInterval.value);
-  console.log('   remainingBreakTime:', remainingBreakTime.value);
-  
   // 清除已有休息计时器
   if (breakTimerInterval.value) {
-    console.log('⏹️  清除已有休息计时器:', breakTimerInterval.value);
     clearInterval(breakTimerInterval.value);
     breakTimerInterval.value = null;
-    console.log('   休息计时器已清除');
   }
   
-  console.log('⏱️  调用 setInterval 启动休息计时器...');
+  // 启动新计时器
   breakTimerInterval.value = setInterval(() => {
-    console.log('☕ 休息计时器回调执行:');
-    console.log('   - remainingBreakTime:', remainingBreakTime.value);
-    
     // 更新剩余休息时间
     remainingBreakTime.value--;
     
-    if (remainingBreakTime.value > 0) {
-      console.log('⏳ 休息计时器更新:', remainingBreakTime.value);
-    } else {
-      console.log('🎉 休息计时器结束');
+    if (remainingBreakTime.value <= 0) {
       endBreakMode();
     }
   }, 1000);
-  
-  console.log('✅ 休息计时器已启动，interval ID:', breakTimerInterval.value);
-  console.log('====================================');
 };
 
 // 计时结束处理
 const handleTimerComplete = () => {
-  console.log('====================================');
-  console.log('🎉 handleTimerComplete 函数调用');
-  console.log('调用时状态:');
-  console.log('   isRunning:', isRunning.value);
-  console.log('   timerInterval:', timerInterval.value);
   
   // 停止计时器
-  console.log('🔄 设置状态：isRunning = false');
   isRunning.value = false;
   
   // 清除计时器
   if (timerInterval.value) {
-    console.log('⏹️  清除计时器:', timerInterval.value);
     clearInterval(timerInterval.value);
     timerInterval.value = null;
-    console.log('   计时器已清除');
   }
   
   // 播放结束音效
   if (isSoundPlaying.value && selectedSound.value !== 'none') {
-    console.log('🔊 播放结束音效');
     playNotificationSound();
   }
   
@@ -409,30 +343,21 @@ const handleTimerComplete = () => {
   const autoBreak = settingsStore.getSetting('autoBreakOnComplete', true);
   const breakDuration = settingsStore.getSetting('defaultBreakDuration', 5);
   
-  console.log('🔧 自动休息设置:');
-  console.log('   - autoBreak:', autoBreak);
-  console.log('   - breakDuration:', breakDuration, '分钟');
-  
   if (autoBreak) {
-    console.log('⏳ 500ms后自动进入休息模式');
     setTimeout(() => {
       startBreakMode(breakDuration);
     }, 500);
   } else {
-    console.log('💬 显示提示：专注时间结束！');
     alert('专注时间结束！');
   }
-  
-  console.log('✅ 计时结束处理完成');
-  console.log('====================================');
 };
 
 // 通知音效
 const playNotificationSound = () => {
   try {
     const audio = new Audio('/sounds/timer-complete.mp3');
-    audio.volume = volume.value / 100;
-    audio.play().catch(e => console.log('音效播放失败:', e));
+    audio.volume = globalVolume.value / 100; // 使用全局音量变量
+    audio.play().catch(e => console.error('音效播放失败:', e));
   } catch (error) {
     console.error('播放通知音失败:', error);
   }
@@ -440,127 +365,66 @@ const playNotificationSound = () => {
 
 // 方法：切换计时器
 const toggleTimer = () => {
-  console.log('====================================');
-  console.log('🔘 toggleTimer 按钮点击事件触发');
-  console.log('当前状态:');
-  console.log('   isBreakMode:', isBreakMode.value);
-  console.log('   isRunning:', isRunning.value);
-  console.log('   timerMode:', timerMode.value);
-  console.log('   remainingTime:', remainingTime.value);
-  console.log('   elapsedTime:', elapsedTime.value);
-  console.log('   timerInterval:', timerInterval.value);
-  console.log('   breakTimerInterval:', breakTimerInterval.value);
   
   if (isBreakMode.value) {
-    console.log('⏸️  休息模式下调用 toggleTimer，调用 endBreakMode');
     endBreakMode();
     return;
   }
   
   if (isRunning.value) {
-    console.log('⏸️  当前正在运行，调用 pauseTimer');
     pauseTimer();
   } else {
-    console.log('▶️  当前未运行，准备启动计时器');
-    
     // 确保在开始前重置状态
     if (timerMode.value === 'countdown' && remainingTime.value <= 0) {
-      console.log('🔄 剩余时间为0，自动重置计时器');
       resetTimer();
-      console.log('   重置后 remainingTime:', remainingTime.value);
     }
     
-    console.log('▶️  调用 startTimer() 启动计时器');
     startTimer();
   }
-  
-  console.log('====================================');
 };
 
 // 方法：暂停计时
 const pauseTimer = () => {
-  console.log('====================================');
-  console.log('⏸️  pauseTimer 函数调用');
-  console.log('调用时状态:');
-  console.log('   isRunning:', isRunning.value);
-  console.log('   timerInterval:', timerInterval.value);
-  
   // 设置状态为暂停
-  console.log('🔄 设置状态：isRunning = false');
   isRunning.value = false;
   
   // 清除计时器
   if (timerInterval.value) {
-    console.log('⏹️  清除计时器:', timerInterval.value);
     clearInterval(timerInterval.value);
     timerInterval.value = null;
-    console.log('   计时器已清除');
-  } else {
-    console.log('⏹️  没有需要清除的计时器');
   }
-  
-  console.log('✅ 暂停操作完成');
-  console.log('====================================');
 };
 
 // 方法：重置计时
 const resetTimer = () => {
-  console.log('====================================');
-  console.log('🔄 resetTimer 函数调用');
-  console.log('调用时状态:');
-  console.log('   timerMode:', timerMode.value);
-  console.log('   remainingTime:', remainingTime.value);
-  console.log('   elapsedTime:', elapsedTime.value);
-  console.log('   duration:', duration.value);
-  
   // 先暂停计时器
   pauseTimer();
   
   // 根据模式重置时间
   if (timerMode.value === 'countdown') {
-    console.log('🔄 重置倒计时：remainingTime =', duration.value);
     remainingTime.value = duration.value;
   } else {
-    console.log('🔄 重置正计时：elapsedTime = 0');
     elapsedTime.value = 0;
   }
-  
-  console.log('✅ 重置完成后状态:');
-  console.log('   - remainingTime:', remainingTime.value);
-  console.log('   - elapsedTime:', elapsedTime.value);
-  console.log('====================================');
 };
 
 // 方法：选择预设时长
 const selectPreset = (preset) => {
-  console.log('====================================');
-  console.log('🎯 selectPreset 函数调用');
-  console.log('选择的预设:', preset, '分钟');
-  
   selectedPreset.value = preset;
   const newDuration = preset * 60;
   duration.value = newDuration;
   customMinutes.value = preset;
   
-  console.log('🔄 更新时长:', newDuration, '秒');
   resetTimer();
-  console.log('✅ 预设选择完成');
-  console.log('====================================');
 };
 
 // 方法：更新自定义时长
 const updateCustomDuration = () => {
-  console.log('====================================');
-  console.log('⏱️  updateCustomDuration 函数调用');
-  console.log('输入的自定义时长:', customMinutes.value, '分钟');
-  
   // 限制自定义时长范围
   if (customMinutes.value < 5) {
-    console.log('⚠️  自定义时长小于最小值5，自动调整为5分钟');
     customMinutes.value = 5;
   }
   if (customMinutes.value > 180) {
-    console.log('⚠️  自定义时长大于最大值180，自动调整为180分钟');
     customMinutes.value = 180;
   }
   
@@ -568,30 +432,15 @@ const updateCustomDuration = () => {
   duration.value = newDuration;
   selectedPreset.value = 0;
   
-  console.log('🔄 更新时长:', newDuration, '秒');
   resetTimer();
-  console.log('✅ 自定义时长更新完成');
-  console.log('====================================');
 };
 
 // 方法：开始休息模式
 const startBreakMode = (minutes) => {
-  console.log('====================================');
-  console.log('☕ startBreakMode 函数调用');
-  console.log('调用参数:');
-  console.log('   休息时长:', minutes, '分钟');
-  console.log('调用时状态:');
-  console.log('   isBreakMode:', isBreakMode.value);
-  console.log('   isRunning:', isRunning.value);
-  
-  // 确保专注计时器已停止
-  console.log('⏸️  确保专注计时器已停止');
   pauseTimer();
   
   // 设置休息模式状态
-  console.log('🔄 设置状态：isBreakMode = true');
   isBreakMode.value = true;
-  console.log('🔄 设置状态：isRunning = true');
   isRunning.value = true;
   
   // 设置休息时长
@@ -607,19 +456,10 @@ const startBreakMode = (minutes) => {
   
   // 显示状态提示
   showStatusMessage(`开始${minutes}分钟休息`);
-  console.log('✅ 休息模式已启动');
-  console.log('====================================');
 };
 
 // 方法：结束休息模式
 const endBreakMode = () => {
-  console.log('====================================');
-  console.log('🛑 endBreakMode 函数调用');
-  console.log('调用时状态:');
-  console.log('   isBreakMode:', isBreakMode.value);
-  console.log('   isRunning:', isRunning.value);
-  console.log('   breakTimerInterval:', breakTimerInterval.value);
-  
   // 停止休息计时器
   console.log('🔄 设置状态：isBreakMode = false');
   isBreakMode.value = false;
@@ -642,22 +482,7 @@ const endBreakMode = () => {
   console.log('🔄 重置专注计时器状态');
   resetTimer();
   
-  // 确保状态正确，便于调试
-  console.log('✅ 结束休息模式后状态:');
-  console.log('   - isBreakMode:', isBreakMode.value);
-  console.log('   - isRunning:', isRunning.value);
-  console.log('   - timerMode:', timerMode.value);
-  console.log('   - remainingTime:', remainingTime.value);
-  console.log('   - elapsedTime:', elapsedTime.value);
-  console.log('   - timerInterval:', timerInterval.value);
-  console.log('   - breakTimerInterval:', breakTimerInterval.value);
-  
-  // 不弹出确认框，直接返回选择界面
-  console.log('🏠 已返回专注模式选择界面');
-  
-  // 可选：添加一个短暂的状态提示
   showStatusMessage('休息结束，已返回专注模式');
-  console.log('====================================');
 };
 
 // 方法：安排休息
@@ -711,10 +536,15 @@ const playSound = async (soundId) => {
   initAudioContext();
   
   try {
-    // 检查是否有本地音频文件
-    if (localAudioFile.value) {
-      console.log('🔊 加载本地音频:', localAudioFile.value.name);
-      
+    // 如果选择的是"关闭环境音"，直接返回
+    if (soundId === 'none') {
+      selectedSound.value = 'none';
+      isSoundPlaying.value = false;
+      return;
+    }
+    
+    // 检查是否应该播放本地音频
+    if (soundId === 'local' && localAudioFile.value) {
       // 更新状态
       selectedSound.value = 'local';
       isSoundPlaying.value = true;
@@ -742,55 +572,59 @@ const playSound = async (soundId) => {
       
       // 开始播放
       source.start();
-      console.log('🔊 开始播放本地音频:', localAudioFile.value.name);
-      return;
-    }
-    
-    // 如果选择的是"暂无音效"且没有本地音频，直接返回
-    if (soundId === 'none') {
-      selectedSound.value = 'none';
-      isSoundPlaying.value = false;
       return;
     }
     
     // 获取音效预设
     const preset = soundPresets.value.find(p => p.id === soundId);
-    if (!preset || !preset.url) return;
+    if (!preset) {
+      console.error('音效预设未找到:', soundId);
+      return;
+    }
     
-    // 更新选中的音效
+    // 立即更新selectedSound，确保按钮样式切换
     selectedSound.value = soundId;
-    preset.playing = true;
-    isSoundPlaying.value = true;
     
-    // 加载音频
-    console.log('🔊 加载音效:', preset.name, 'URL:', preset.url);
-    const response = await fetch(preset.url);
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await audioContext.value.decodeAudioData(arrayBuffer);
+    // 如果是本地音频预设但没有文件，直接返回
+    if (soundId === 'local' && !localAudioFile.value) {
+      isSoundPlaying.value = false;
+      alert('请先导入本地音频文件');
+      return;
+    }
     
-    // 创建音频源
-    const source = audioContext.value.createBufferSource();
-    source.buffer = audioBuffer;
-    source.loop = true;
-    
-    // 创建增益节点
-    const gainNode = audioContext.value.createGain();
-    gainNode.gain.value = (preset.volume / 100) * (globalVolume.value / 100);
-    
-    // 连接音频节点
-    source.connect(gainNode);
-    gainNode.connect(audioContext.value.destination);
-    
-    // 存储音频源和增益节点
-    audioSources.value[soundId] = source;
-    gainNodes.value[soundId] = gainNode;
-    
-    // 开始播放
-    source.start();
-    console.log('🔊 开始播放音效:', preset.name);
+    // 加载预设音频
+    if (preset.url) {
+      const response = await fetch(preset.url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.value.decodeAudioData(arrayBuffer);
+      
+      // 创建音频源
+      const source = audioContext.value.createBufferSource();
+      source.buffer = audioBuffer;
+      source.loop = true;
+      
+      // 创建增益节点
+      const gainNode = audioContext.value.createGain();
+      gainNode.gain.value = (preset.volume / 100) * (globalVolume.value / 100);
+      
+      // 连接音频节点
+      source.connect(gainNode);
+      gainNode.connect(audioContext.value.destination);
+      
+      // 存储音频源和增益节点
+      audioSources.value[soundId] = source;
+      gainNodes.value[soundId] = gainNode;
+      
+      // 更新状态
+      preset.playing = true;
+      isSoundPlaying.value = true;
+      
+      // 开始播放
+      source.start();
+    }
   } catch (error) {
     console.error('播放音效失败:', error);
-    alert('播放音效失败，请检查网络连接、音频URL或本地音频文件');
+    alert('播放音效失败，请检查音频文件或网络连接');
   }
 };
 
@@ -821,8 +655,6 @@ const stopAllSounds = async () => {
   soundPresets.value.forEach(preset => {
     preset.playing = false;
   });
-  
-  console.log('🔇 停止所有音效');
 };
 
 const updateSoundVolume = (soundId, newVolume) => {
@@ -859,16 +691,8 @@ const updateGlobalVolume = () => {
 };
 
 const toggleSoundPreset = async (soundId) => {
-  console.log('🔘 切换音效预设:', soundId);
-  
-  // 如果当前已经在播放这个音效，停止播放
-  if (selectedSound.value === soundId && isSoundPlaying.value) {
-    await stopAllSounds();
-    selectedSound.value = 'none';
-  } else {
-    // 否则播放选中的音效
-    await playSound(soundId);
-  }
+  // 直接播放选中的音效，playSound函数内部会处理停止当前音效
+  await playSound(soundId);
 };
 
 const importLocalAudio = (event) => {
@@ -900,7 +724,26 @@ const importLocalAudio = (event) => {
 };
 
 const selectSoundPreset = async (soundId) => {
-  await toggleSoundPreset(soundId);
+  if (soundId === 'none') {
+    // 如果选择的是"关闭环境音"，直接停止所有音效
+    await stopAllSounds();
+    // 更新selectedSound值，确保按钮样式正确切换
+    selectedSound.value = 'none';
+    isSoundPlaying.value = false;
+  } else {
+    // 否则播放选中的音效
+    await toggleSoundPreset(soundId);
+  }
+};
+
+// 打开文件选择对话框
+const openFileDialog = () => {
+  if (audioFileInput.value) {
+    console.log('📁 打开文件选择对话框');
+    audioFileInput.value.click();
+  } else {
+    console.error('❌ audioFileInput ref未找到');
+  }
 };
 
 // 添加状态提示方法

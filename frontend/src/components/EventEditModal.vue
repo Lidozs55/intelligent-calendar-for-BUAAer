@@ -106,11 +106,11 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['close', 'update', 'delete'])
 
-// 事件类型到默认颜色的映射（使用深色系，确保白色字体清晰可见）
+// 事件类型到默认颜色的映射（使用与BUAA_API同步的颜色）
 const typeToColor = {
-  course: '#2c3e50',       // 深蓝灰色
+  course: '#4a90e2',       // 北航蓝色，与BUAA_API同步
   lecture: '#34495e',      // 深灰色
-  exam: '#c0392b',         // 深红色
+  exam: '#ff4444',         // 红色，与BUAA_API同步
   meeting: '#27ae60',      // 深绿色
   homework: '#8e44ad',     // 深紫色
   exercise: '#16a085',     // 深青色

@@ -58,8 +58,10 @@ export const coursesAPI = {
   updateCourse: (id, data) => api.put(`/courses/${id}`, data),
   // 删除课程
   deleteCourse: (id) => api.delete(`/courses/${id}`),
-  // 同步北航课程表
+  // 同步北航课程表（使用当前日期）
   syncBuaaCourses: (data) => api.post('/courses/sync_buaa', data),
+  // 按指定日期同步北航课程表
+  syncBuaaCoursesByDate: (date, data) => api.post(`/courses/sync_buaa/${date}`, data),
   // 验证北航登录凭证
   verifyBuaaCredentials: (data) => api.post('/courses/verify_buaa_credentials', data)
 }

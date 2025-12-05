@@ -61,8 +61,14 @@ const handleUseClipboardItem = (text) => {
   justify-content: space-between;
   padding: 1rem 2rem;
   background-color: #4a90e2;
-  color: white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: inherit; /* 使用默认文本颜色 */
 }
 
 .back-btn {

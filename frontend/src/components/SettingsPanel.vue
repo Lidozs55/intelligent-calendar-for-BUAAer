@@ -10,33 +10,33 @@
       <section class="settings-section">
         <h3>北航账号绑定</h3>
         <form class="settings-form">
-            <div class="form-group">
-                <label for="buaa-id">北航学号</label>
-                <input 
-                    type="text" 
-                    id="buaa-id" 
-                    v-model="buaaId" 
-                    placeholder="请输入北航学号"
-                />
-            </div>
-            <div class="form-group">
-                <label for="buaa-password">北航密码</label>
-                <input 
-                    type="password" 
-                    id="buaa-password" 
-                    v-model="buaaPassword" 
-                    placeholder="请输入北航密码"
-                />
-            </div>
-            <div class="button-group">
-            <button type="button" class="save-btn" @click="saveBuaaId">保存</button>
+          <div class="form-group">
+              <label for="buaa-id">北航学号</label>
+              <input 
+                  type="text" 
+                  id="buaa-id" 
+                  v-model="buaaId" 
+                  placeholder="请输入北航学号"
+              />
+          </div>
+          <div class="form-group">
+              <label for="buaa-password">北航密码</label>
+              <input 
+                  type="password" 
+                  id="buaa-password" 
+                  v-model="buaaPassword" 
+                  placeholder="请输入北航密码"
+              />
+          </div>
+          <div class="button-group">
             <button type="button" class="sync-btn" @click="syncBuaaCourses" :disabled="syncLoading">
                 <span v-if="syncLoading">正在同步...</span>
                 <span v-else>同步课程表</span>
             </button>
-        </div>
+            <button type="button" class="save-btn" @click="saveBuaaId">保存</button>
+          </div>
         <div class="form-hint">
-            提示：点击"同步课程表"按钮后，系统会自动处理登录流程，无需手动获取Cookie。
+            提示：点击"同步课程表"按钮后，系统会自动处理登录流程。（密码不会存储，仅临时使用）
         </div>
         <div v-if="syncStatus" class="sync-status" :class="syncStatus.includes('成功') ? 'success' : 'error'">
             {{ syncStatus }}
@@ -270,7 +270,6 @@ const saveBuaaId = async () => {
     // console.log('保存北航学号:', response)
     // 更新store
     userStore.updateBuaaId(buaaId.value)
-    alert('保存成功')
   } catch (error) {
     // console.error('保存失败:', error)
     alert('保存失败')
@@ -316,8 +315,6 @@ const syncBuaaCourses = async () => {
     const coursesResponse = await coursesAPI.getCourses()
     courseStore.setCourses(coursesResponse.courses)
     
-    alert('课程表同步成功')
-    
     // 清空密码
     buaaPassword.value = ''
   } catch (error) {
@@ -342,9 +339,6 @@ const syncBuaaCourses = async () => {
       // 请求配置错误
       syncStatus.value = `请求失败: ${error.message}`
     }
-    
-    // 显示错误信息
-    alert(syncStatus.value)
   } finally {
     // 关闭加载状态
     syncLoading.value = false
@@ -354,7 +348,6 @@ const syncBuaaCourses = async () => {
 // 保存提醒设置
 const saveReminderSettings = () => {
   settingsStore.updateReminderSettings(reminderSettings.value)
-  alert('保存成功')
 }
 
 // 保存主题和颜色设置
@@ -362,13 +355,11 @@ const saveThemeAndColor = () => {
   settingsStore.updateTheme(theme.value)
   settingsStore.updateDefaultColor(defaultColor.value)
   // 主题和颜色切换会通过CSS变量自动生效
-  alert('主题和颜色设置已保存')
 }
 
 // 保存精力周期设置
 const saveEnergyCycle = () => {
   settingsStore.updateEnergyCycle(energyCycle.value)
-  alert('保存成功')
 }
 
 // 保存API_KEY
@@ -380,7 +371,6 @@ const saveApiKey = async () => {
   
   try {
     const response = await settingsAPI.saveApiKey({ api_key: apiKey.value })
-    alert('API_KEY保存成功')
     // 清空输入框
     apiKey.value = ''
   } catch (error) {

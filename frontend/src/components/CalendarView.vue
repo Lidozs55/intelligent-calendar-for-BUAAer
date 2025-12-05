@@ -95,11 +95,11 @@ const isLoading = ref(false)
 // 取消令牌，用于取消正在进行的请求
 let cancelTokenSource = null
 
-// 事件类型到默认颜色的映射（使用深色系，确保白色字体清晰可见）
+// 事件类型到默认颜色的映射（使用与BUAA_API同步的颜色）
 const typeToColor = {
-  course: '#2c3e50',       // 深蓝灰色
+  course: '#4a90e2',       // 北航蓝
   lecture: '#34495e',      // 深灰色
-  exam: '#c0392b',         // 深红色
+  exam: '#ff4444',         // 红色
   meeting: '#27ae60',      // 深绿色
   homework: '#8e44ad',     // 深紫色
   exercise: '#16a085',     // 深青色
@@ -110,6 +110,11 @@ const typeToColor = {
 
 // 临时事件引用
 let tempEvent = null
+
+// 撤销栈和重做栈，用于存储最近5次的事件修改记录
+const undoStack = ref([])
+const redoStack = ref([])
+const MAX_UNDO_STEPS = 5
 
 // 快速跳转功能状态
 const showQuickJump = ref(false)
@@ -562,18 +567,17 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
     // 更新日历事件
     updateCalendarEvents(entries)
     
-    // 2. 同步北航课程表（复用SettingsPanel.vue的实现）
+    // 2. 同步北航课程表（复用SettingsPanel.vue的实现，使用新的按日期同步API）
     try {
       loadingStatus.value = '正在同步课程表...'
       
       // 获取北航学号
       const buaaIdResponse = await authAPI.getBuaaId()
       if (buaaIdResponse.buaa_id) {
-        // 调用同步课程表API
-        await coursesAPI.syncBuaaCourses({
+        // 调用新的按日期同步课程表API
+        await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
           buaa_id: buaaIdResponse.buaa_id,
-          password: '', // 密码由后端存储，前端不需要传递
-          date: formattedDate
+          password: '' // 密码由后端存储，前端不需要传递
         })
         
         // 3. 同步成功后，再次获取entries刷新前端
@@ -699,9 +703,50 @@ const handleEventUpdate = async (eventData) => {
   // 获取当前视图的中心日期
   if (calendarRef.value) {
     const calendarApi = calendarRef.value.getApi()
-    const currentDate = calendarApi.view.currentStart
-    // 重新从API获取数据并更新日历
-    await fetchDataAndUpdateCalendar(currentDate)
+    
+    // 如果是更新现有事件，保存原事件状态到撤销栈
+    if (eventData.id) {
+      const currentEvent = calendarApi.getEventById(eventData.id)
+      if (currentEvent) {
+        const originalEvent = {
+          id: currentEvent.id,
+          start: currentEvent.start,
+          end: currentEvent.end,
+          title: currentEvent.title,
+          backgroundColor: currentEvent.backgroundColor,
+          borderColor: currentEvent.borderColor,
+          extendedProps: { ...currentEvent.extendedProps }
+        }
+        
+        // 清空重做栈
+        redoStack.value = []
+        
+        // 将原事件状态存入撤销栈
+        undoStack.value.push(originalEvent)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+      }
+    }
+  }
+  
+  // 直接通过API更新服务器，不需要重新获取所有数据
+  try {
+    // 调用API更新条目
+    await entriesAPI.updateEntry(eventData.id, {
+      title: eventData.title,
+      description: eventData.description || '',
+      entry_type: eventData.extendedProps.type,
+      start_time: eventData.start,
+      end_time: eventData.end,
+      color: eventData.backgroundColor
+    })
+    console.log('事件已保存到数据库:', eventData)
+  } catch (error) {
+    console.error('保存事件到数据库失败:', error)
+    alert('保存失败，请重试')
   }
   
   // 确保临时事件被销毁
@@ -711,12 +756,262 @@ const handleEventUpdate = async (eventData) => {
 // 处理事件删除
 const handleEventDelete = async (eventId) => {
   console.log('删除事件:', eventId)
-  // 获取当前视图的中心日期
+  
+  // 保存被删除的事件状态到撤销栈
   if (calendarRef.value) {
     const calendarApi = calendarRef.value.getApi()
-    const currentDate = calendarApi.view.currentStart
-    // 重新从API获取数据并更新日历
-    await fetchDataAndUpdateCalendar(currentDate)
+    const deletedEvent = calendarApi.getEventById(eventId)
+    
+    if (deletedEvent) {
+      const originalEvent = {
+        id: deletedEvent.id,
+        start: deletedEvent.start,
+        end: deletedEvent.end,
+        title: deletedEvent.title,
+        backgroundColor: deletedEvent.backgroundColor,
+        borderColor: deletedEvent.borderColor,
+        extendedProps: { ...deletedEvent.extendedProps }
+      }
+      
+      // 清空重做栈
+      redoStack.value = []
+      
+      // 将原事件状态存入撤销栈
+      undoStack.value.push(originalEvent)
+      
+      // 确保撤销栈不超过最大步数
+      if (undoStack.value.length > MAX_UNDO_STEPS) {
+        undoStack.value.shift()
+      }
+    }
+  }
+  
+  // 直接通过API删除服务器上的事件
+  try {
+    await entriesAPI.deleteEntry(eventId)
+    console.log('事件已从数据库删除:', eventId)
+  } catch (error) {
+    console.error('删除事件到数据库失败:', error)
+    alert('删除失败，请重试')
+  }
+  
+  // 从日历视图中移除事件
+  if (calendarRef.value) {
+    const calendarApi = calendarRef.value.getApi()
+    const eventToRemove = calendarApi.getEventById(eventId)
+    if (eventToRemove) {
+      eventToRemove.remove()
+    }
+  }
+}
+
+// 撤销函数，处理Ctrl+Z操作
+const handleUndo = async () => {
+  if (undoStack.value.length === 0) {
+    console.log('撤销栈为空，无法撤销')
+    return
+  }
+  
+  // 从撤销栈中取出最近的操作
+  const lastOperation = undoStack.value.pop()
+  
+  try {
+    if (calendarRef.value) {
+      const calendarApi = calendarRef.value.getApi()
+      
+      // 查找当前事件
+      const currentEvent = calendarApi.getEventById(lastOperation.id)
+      if (currentEvent) {
+        // 情况1：事件存在，恢复到之前的状态（拖动或修改）
+        // 将当前事件状态存入重做栈
+        const currentState = {
+          id: currentEvent.id,
+          start: currentEvent.start,
+          end: currentEvent.end,
+          title: currentEvent.title,
+          backgroundColor: currentEvent.backgroundColor,
+          borderColor: currentEvent.borderColor,
+          extendedProps: { ...currentEvent.extendedProps }
+        }
+        redoStack.value.push(currentState)
+        
+        // 确保重做栈不超过最大步数
+        if (redoStack.value.length > MAX_UNDO_STEPS) {
+          redoStack.value.shift()
+        }
+        
+        // 恢复事件到之前的状态
+        currentEvent.setStart(lastOperation.start)
+        currentEvent.setEnd(lastOperation.end)
+        currentEvent.setProp('title', lastOperation.title)
+        currentEvent.setProp('backgroundColor', lastOperation.backgroundColor)
+        currentEvent.setProp('borderColor', lastOperation.borderColor)
+        
+        // 调用API更新服务器
+        const formatDateTime = (date) => {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          return `${year}-${month}-${day}T${hours}:${minutes}`
+        }
+        
+        const entryData = {
+          title: lastOperation.title,
+          description: '',
+          entry_type: lastOperation.extendedProps.type,
+          start_time: formatDateTime(lastOperation.start),
+          end_time: formatDateTime(lastOperation.end),
+          color: lastOperation.backgroundColor
+        }
+        
+        await entriesAPI.updateEntry(lastOperation.id, entryData)
+        console.log('撤销操作成功')
+      } else {
+        // 情况2：事件不存在，可能是被删除的事件，需要重新创建
+        // 将创建事件的操作存入重做栈
+        redoStack.value.push(lastOperation)
+        
+        // 确保重做栈不超过最大步数
+        if (redoStack.value.length > MAX_UNDO_STEPS) {
+          redoStack.value.shift()
+        }
+        
+        // 重新创建被删除的事件
+        const newEvent = calendarApi.addEvent({
+          id: lastOperation.id,
+          title: lastOperation.title,
+          start: lastOperation.start,
+          end: lastOperation.end,
+          backgroundColor: lastOperation.backgroundColor,
+          borderColor: lastOperation.borderColor,
+          allDay: false,
+          editable: true,
+          extendedProps: { ...lastOperation.extendedProps }
+        })
+        
+        // 调用API重新创建事件
+        const formatDateTime = (date) => {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          return `${year}-${month}-${day}T${hours}:${minutes}`
+        }
+        
+        const entryData = {
+          title: lastOperation.title,
+          description: '',
+          entry_type: lastOperation.extendedProps.type,
+          start_time: formatDateTime(lastOperation.start),
+          end_time: formatDateTime(lastOperation.end),
+          color: lastOperation.backgroundColor
+        }
+        
+        await entriesAPI.updateEntry(lastOperation.id, entryData)
+        console.log('撤销删除操作成功，重新创建了事件')
+      }
+    }
+  } catch (error) {
+    console.error('撤销操作失败:', error)
+    // 撤销失败时，将操作放回撤销栈
+    undoStack.value.push(lastOperation)
+  }
+}
+
+// 重做函数，处理Ctrl+Shift+Z和Ctrl+Y操作
+const handleRedo = async () => {
+  if (redoStack.value.length === 0) {
+    console.log('重做栈为空，无法重做')
+    return
+  }
+  
+  // 从重做栈中取出最近的操作
+  const lastOperation = redoStack.value.pop()
+  
+  try {
+    if (calendarRef.value) {
+      const calendarApi = calendarRef.value.getApi()
+      
+      // 查找当前事件
+      const currentEvent = calendarApi.getEventById(lastOperation.id)
+      if (currentEvent) {
+        // 情况1：事件存在，执行重做操作（可能是删除或修改）
+        // 将当前事件状态存入撤销栈
+        const currentState = {
+          id: currentEvent.id,
+          start: currentEvent.start,
+          end: currentEvent.end,
+          title: currentEvent.title,
+          backgroundColor: currentEvent.backgroundColor,
+          borderColor: currentEvent.borderColor,
+          extendedProps: { ...currentEvent.extendedProps }
+        }
+        undoStack.value.push(currentState)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+        
+        // 删除事件（重做删除操作）
+        currentEvent.remove()
+        
+        // 调用API删除服务器上的事件
+        await entriesAPI.deleteEntry(lastOperation.id)
+        console.log('重做删除操作成功')
+      } else {
+        // 情况2：事件不存在，执行重做修改操作
+        // 将当前操作存入撤销栈
+        undoStack.value.push(lastOperation)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+        
+        // 重新创建事件并应用修改
+        const newEvent = calendarApi.addEvent({
+          id: lastOperation.id,
+          title: lastOperation.title,
+          start: lastOperation.start,
+          end: lastOperation.end,
+          backgroundColor: lastOperation.backgroundColor,
+          borderColor: lastOperation.borderColor,
+          allDay: false,
+          editable: true,
+          extendedProps: { ...lastOperation.extendedProps }
+        })
+        
+        // 调用API更新服务器
+        const formatDateTime = (date) => {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          return `${year}-${month}-${day}T${hours}:${minutes}`
+        }
+        
+        const entryData = {
+          title: lastOperation.title,
+          description: '',
+          entry_type: lastOperation.extendedProps.type,
+          start_time: formatDateTime(lastOperation.start),
+          end_time: formatDateTime(lastOperation.end),
+          color: lastOperation.backgroundColor
+        }
+        
+        await entriesAPI.updateEntry(lastOperation.id, entryData)
+        console.log('重做修改操作成功')
+      }
+    }
+  } catch (error) {
+    console.error('重做操作失败:', error)
+    // 重做失败时，将操作放回重做栈
+    redoStack.value.push(lastOperation)
   }
 }
 
@@ -800,12 +1095,33 @@ onMounted(() => {
     }
   };
   
+  // 添加键盘事件监听器，处理撤销和重做
+  const handleKeyDown = (event) => {
+    // Ctrl+Z: 撤销
+    if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      handleUndo();
+    }
+    // Ctrl+Shift+Z: 重做
+    else if (event.ctrlKey && event.shiftKey && event.key === 'Z') {
+      event.preventDefault();
+      handleRedo();
+    }
+    // Ctrl+Y: 重做
+    else if (event.ctrlKey && event.key === 'y') {
+      event.preventDefault();
+      handleRedo();
+    }
+  };
+  
   // 添加事件监听器
   document.addEventListener('click', handleGlobalClick);
+  document.addEventListener('keydown', handleKeyDown);
   
   // 组件卸载时移除事件监听器
   onUnmounted(() => {
     document.removeEventListener('click', handleGlobalClick);
+    document.removeEventListener('keydown', handleKeyDown);
     // 组件卸载时确保销毁临时事件
     destroyTempEvent();
   });
