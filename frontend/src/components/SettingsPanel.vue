@@ -320,10 +320,30 @@ const syncBuaaCourses = async () => {
       const coursesResponse = await coursesAPI.getCourses()
       courseStore.setCourses(coursesResponse.courses)
       
-      // 获取最新的entries数据并更新store，这样CalendarView会自动刷新
-      const entriesResponse = await entriesAPI.getEntriesByDate(date)
+      // 使用完整的GET-BUAA_API-GET逻辑：先获取指定日期范围内的entries，然后同步课程表，最后再次获取entries
+      const formattedDate = date.toISOString().split('T')[0]
+      
+      // 1. 先获取当前日期的entries，确保数据基础
+      const initialEntriesResponse = await entriesAPI.getEntriesByDate(formattedDate)
+      const initialEntries = Array.isArray(initialEntriesResponse) ? initialEntriesResponse : (initialEntriesResponse.entries || [])
+      
+      // 2. 再次同步课程表（使用按日期同步API，确保获取最新数据）
+      try {
+        await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
+          buaa_id: buaaId.value,
+          password: '' // 密码由后端存储，前端不需要传递
+        })
+      } catch (syncError) {
+        console.error('再次同步课程表失败:', syncError)
+        // 继续执行，不影响后续操作
+      }
+      
+      // 3. 最后再次获取entries数据，确保获取到最新的课程表数据
+      const entriesResponse = await entriesAPI.getEntriesByDate(formattedDate)
       const entries = Array.isArray(entriesResponse) ? entriesResponse : (entriesResponse.entries || [])
       entryStore.setEntries(entries)
+      
+      console.log('已执行完整的GET-BUAA_API-GET逻辑，刷新了日历数据')
     } else {
       // 同步失败
       const errorMessage = syncResponse && syncResponse.message ? syncResponse.message : '同步失败，请稍后重试'

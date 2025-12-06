@@ -330,18 +330,11 @@ const calendarOptions = {
       // 日历加载完成后再加载数据，确保calendarRef可用
       const initialDate = adjustInitialDate()
       fetchDataAndUpdateCalendar(initialDate)
-      
-      // 添加定时器定期检查并修复日历标题
-      setTimeout(() => {
-        fixCalendarTitle()
-      }, 100)
     },
     
     // 视图切换事件
     viewDidChange: () => {
-      setTimeout(() => {
-        fixCalendarTitle()
-      }, 100)
+      // 视图切换时不需要额外操作
     },
     
     // 日期渲染事件，用于自定义表头样式和日期导航
@@ -355,11 +348,6 @@ const calendarOptions = {
       // 当日期范围变化时，获取当前视图的中心日期并重新加载数据
       const centerDate = info.view.currentStart
       fetchDataAndUpdateCalendar(centerDate)
-      
-      // 修复日历标题
-      setTimeout(() => {
-        fixCalendarTitle()
-      }, 50)
       
       // 仅为周末添加浅蓝背景（节假日功能暂时禁用）
       setTimeout(() => {
@@ -1087,38 +1075,6 @@ const handleRedo = async () => {
     console.error('重做操作失败:', error)
     // 重做失败时，将操作放回重做栈
     redoStack.value.push(lastOperation)
-  }
-}
-
-// 修复日历标题，将结束日期减1天
-const fixCalendarTitle = () => {
-  const titleEl = document.querySelector('.fc-toolbar-title')
-  if (titleEl) {
-    const titleText = titleEl.textContent
-    // 匹配日期范围格式：YYYY年MM月DD日 – YYYY年MM月DD日
-    const dateRangeRegex = /(\d{4})年(\d{1,2})月(\d{1,2})日 – (\d{4})年(\d{1,2})月(\d{1,2})日/;
-    const match = titleText.match(dateRangeRegex)
-    console.log("fix calendar title")
-    if (match) {
-      console.log("fixing calendar title")
-      // 解析日期
-      const endYear = parseInt(match[4])
-      const endMonth = parseInt(match[5]) - 1 // 月份转为0-11
-      const endDay = parseInt(match[6])
-      
-      // 创建结束日期对象并减1天
-      const endDate = new Date(endYear, endMonth, endDay)
-      endDate.setDate(endDate.getDate() - 1)
-      
-      // 格式化新的结束日期
-      const newEndYear = endDate.getFullYear()
-      const newEndMonth = endDate.getMonth() + 1 // 月份转为1-12
-      const newEndDay = endDate.getDate()
-      
-      // 构建新的标题文本
-      const newTitle = `${match[1]}年${match[2]}月${match[3]}日 – ${newEndYear}年${newEndMonth}月${newEndDay}日`
-      titleEl.textContent = newTitle
-    }
   }
 }
 
