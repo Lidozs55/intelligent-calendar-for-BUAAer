@@ -101,8 +101,10 @@ const typeToColor = {
   lecture: '#34495e',      // 深灰色
   exam: '#ff4444',         // 红色
   meeting: '#27ae60',      // 深绿色
-  homework: '#8e44ad',     // 深紫色
-  exercise: '#16a085',     // 深青色
+  individual_homework: '#8e44ad',     // 深紫色 - 个人作业
+  group_report: '#9b59b6',     // 紫色 - 小组汇报
+  exam_prep: '#e74c3c',     // 红色 - 考试备考
+  work_delivery: '#3498db',     // 蓝色 - 工作交付
   sports: '#f39c12',       // 深橙色
   study: '#2980b9',        // 深蓝色
   other: '#7f8c8d'         // 深灰色
@@ -732,21 +734,38 @@ const handleEventUpdate = async (eventData) => {
     }
   }
   
-  // 直接通过API更新服务器，不需要重新获取所有数据
+  // 直接通过API更新服务器
   try {
     // 调用API更新条目
-    await entriesAPI.updateEntry(eventData.id, {
-      title: eventData.title,
-      description: eventData.description || '',
-      entry_type: eventData.extendedProps.type,
-      start_time: eventData.start,
-      end_time: eventData.end,
-      color: eventData.backgroundColor
-    })
-    console.log('事件已保存到数据库:', eventData)
+    if (eventData.id) {
+      // 只处理已经存在的事件，新事件已经在EventEditModal.vue的saveEvent函数中处理过了
+      await entriesAPI.updateEntry(eventData.id, {
+        title: eventData.title,
+        description: eventData.description || '',
+        entry_type: eventData.extendedProps.type,
+        start_time: eventData.start,
+        end_time: eventData.end,
+        color: eventData.backgroundColor
+      })
+      console.log('事件已更新到数据库:', eventData)
+    }
+    
+    // 添加GET api/entries的逻辑，确保新建日程会立马显示
+    // 获取当前视图的中心日期
+    const currentDate = new Date()
+    // 格式化日期为YYYY-MM-DD格式
+    const formattedDate = currentDate.toISOString().split('T')[0]
+    // 调用API获取所有条目，刷新前端
+    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+    const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
+    // 更新entryStore.entries数组
+    entryStore.setEntries(refreshedEntries)
+    // 更新日历事件
+    updateCalendarEvents(refreshedEntries)
+    console.log('已刷新日历，新建日程已显示')
   } catch (error) {
     console.error('保存事件到数据库失败:', error)
-    alert('保存失败，请重试')
+    // 移除不必要的alert，只在控制台打印错误信息
   }
   
   // 确保临时事件被销毁
@@ -792,7 +811,7 @@ const handleEventDelete = async (eventId) => {
     console.log('事件已从数据库删除:', eventId)
   } catch (error) {
     console.error('删除事件到数据库失败:', error)
-    alert('删除失败，请重试')
+    // 移除不必要的alert，只在控制台打印错误信息
   }
   
   // 从日历视图中移除事件

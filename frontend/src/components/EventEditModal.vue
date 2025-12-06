@@ -29,11 +29,9 @@
               >
                 <option value="course">课程</option>
                 <option value="lecture">讲座</option>
-                <option value="exam">考试</option>
                 <option value="meeting">会议</option>
-                <option value="homework">作业</option>
-                <option value="exercise">作业完成</option>
-                <option value="sports">体育运动</option>
+                <option value="exam">考试</option>
+                <option value="sports">运动</option>
                 <option value="study">学习</option>
                 <option value="other">其他</option>
               </select>
@@ -112,8 +110,6 @@ const typeToColor = {
   lecture: '#34495e',      // 深灰色
   exam: '#ff4444',         // 红色，与BUAA_API同步
   meeting: '#27ae60',      // 深绿色
-  homework: '#8e44ad',     // 深紫色
-  exercise: '#16a085',     // 深青色
   sports: '#f39c12',       // 深橙色
   study: '#2980b9',        // 深蓝色
   other: '#7f8c8d'         // 深灰色
@@ -228,13 +224,13 @@ const saveEvent = async () => {
     // 更详细的错误信息
     if (error.response) {
       console.error('错误响应:', error.response.data)
-      alert(`保存事件失败: ${error.response.data.message || '未知错误'}`)
+      // 移除不必要的alert，只在控制台打印错误信息
     } else if (error.request) {
       console.error('错误请求:', error.request)
-      alert('保存事件失败: 网络错误，请检查网络连接')
+      // 移除不必要的alert，只在控制台打印错误信息
     } else {
       console.error('错误信息:', error.message)
-      alert(`保存事件失败: ${error.message}`)
+      // 移除不必要的alert，只在控制台打印错误信息
     }
   }
 }
@@ -256,13 +252,13 @@ const deleteEvent = async () => {
       // 更详细的错误信息
       if (error.response) {
         console.error('错误响应:', error.response.data)
-        alert(`删除事件失败: ${error.response.data.message || '未知错误'}`)
+        // 移除不必要的alert，只在控制台打印错误信息
       } else if (error.request) {
         console.error('错误请求:', error.request)
-        alert('删除事件失败: 网络错误，请检查网络连接')
+        // 移除不必要的alert，只在控制台打印错误信息
       } else {
         console.error('错误信息:', error.message)
-        alert(`删除事件失败: ${error.message}`)
+        // 移除不必要的alert，只在控制台打印错误信息
       }
     }
   }

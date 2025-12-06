@@ -169,7 +169,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useTaskStore, useSettingsStore, useUserStore } from '../store'
 import { scheduleAPI } from '../services/api'
 
@@ -214,6 +214,10 @@ const gainNodes = ref({})
 // 监听selectedSound变化，直接展示样式切换日志
 watch(selectedSound, (newValue, oldValue) => {
   console.log('🎨 样式切换日志：', oldValue, '→', newValue);
+  // 确保按钮样式立即更新
+  nextTick(() => {
+    console.log('✅ 样式已更新到DOM');
+  });
 });
 
 // 音频文件输入的ref
@@ -719,7 +723,9 @@ const importLocalAudio = (event) => {
     alert(`音频导入成功: ${file.name}`);
     
     // 重置文件输入，允许重复选择同一文件
-    event.target.value = '';
+    if (audioFileInput.value) {
+      audioFileInput.value.value = '';
+    }
   }
 };
 

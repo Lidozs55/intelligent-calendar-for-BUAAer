@@ -557,7 +557,10 @@ def save_courses():
                 
                 # 解析课程数据，确保数据准确性
                 from services.buaa_api import parse_course_data
-                parsed_courses = parse_course_data(actual_course_data)
+                from datetime import datetime
+                # 使用当前日期作为默认日期
+                current_date = datetime.now().strftime('%Y-%m-%d')
+                parsed_courses = parse_course_data(actual_course_data, current_date)
                 
                 if parsed_courses:
                     # 先删除所有课程数据
@@ -568,13 +571,21 @@ def save_courses():
                         # 解析教室信息
                         classroom = f"{course_item['jxlh']}{course_item['jash']}"
                         
+                        # 解析时间字符串为time对象
+                        from datetime import time as time_obj
+                        start_time_parts = course_item['kssj'].split(':')
+                        end_time_parts = course_item['jssj'].split(':')
+                        
+                        start_time = time_obj(int(start_time_parts[0]), int(start_time_parts[1]))
+                        end_time = time_obj(int(end_time_parts[0]), int(end_time_parts[1]))
+                        
                         # 创建课程对象，不使用user_id
                         new_course = Course(
                             course_name=course_item['kcmc'],
                             teacher=course_item['jsxm'],
                             classroom=classroom,
-                            start_time=course_item['kssj'],
-                            end_time=course_item['jssj'],
+                            start_time=start_time,
+                            end_time=end_time,
                             day_of_week=course_item['xqj'],
                             week_range=course_item['zcd']
                         )

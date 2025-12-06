@@ -163,11 +163,10 @@
           <div class="form-group">
             <label for="task-type">任务类型</label>
             <select id="task-type" v-model="formData.task_type">
-              <option value="homework">作业</option>
-              <option value="exam">考试</option>
-              <option value="lecture">讲座</option>
-              <option value="meeting">会议</option>
-              <option value="other">其他</option>
+              <option value="individual_homework">个人作业</option>
+              <option value="group_report">小组汇报</option>
+              <option value="exam_prep">考试备考</option>
+              <option value="work_delivery">工作交付</option>
             </select>
           </div>
           
@@ -214,7 +213,7 @@ const showUpcomingTasks = ref(true)
 const formData = ref({
   title: '',
   description: '',
-  task_type: 'homework',
+  task_type: 'individual_homework',
   deadline: '',
   priority: 'medium',
   completed: false
@@ -338,7 +337,7 @@ const addNewTask = () => {
   formData.value = {
     title: '',
     description: '',
-    task_type: 'homework',
+    task_type: 'individual_homework',
     deadline: '',
     priority: 'medium',
     completed: false
@@ -422,7 +421,7 @@ const closeTaskModal = () => {
   formData.value = {
     title: '',
     description: '',
-    task_type: 'homework',
+    task_type: 'individual_homework',
     deadline: '',
     priority: 'medium',
     completed: false
@@ -438,11 +437,10 @@ const formatDate = (dateString) => {
 // 获取任务类型标签
 const getTaskTypeLabel = (type) => {
   const typeMap = {
-    homework: '作业',
-    exam: '考试',
-    lecture: '讲座',
-    meeting: '会议',
-    other: '其他'
+    individual_homework: '个人作业',
+    group_report: '小组汇报',
+    exam_prep: '考试备考',
+    work_delivery: '工作交付'
   }
   return typeMap[type] || type
 }
