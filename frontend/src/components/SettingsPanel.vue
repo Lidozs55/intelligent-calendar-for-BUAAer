@@ -207,8 +207,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useUserStore, useSettingsStore, useCourseStore } from '../store'
-import { authAPI, coursesAPI, settingsAPI } from '../services/api'
+import { useUserStore, useSettingsStore, useCourseStore, useEntryStore } from '../store'
+import { authAPI, coursesAPI, settingsAPI, entriesAPI } from '../services/api'
 import axios from 'axios'
 
 const userStore = useUserStore()
@@ -307,13 +307,29 @@ const syncBuaaCourses = async () => {
     
     console.log('同步请求返回结果:', syncResponse)
     
-    // 更新同步状态
-    syncStatus.value = '课程表同步成功！'
-    
-    // 刷新课程列表
-    const courseStore = useCourseStore()
-    const coursesResponse = await coursesAPI.getCourses()
-    courseStore.setCourses(coursesResponse.courses)
+    // 检查同步结果
+    if (syncResponse && syncResponse.status === 'success') {
+      // 更新同步状态
+      syncStatus.value = '课程表同步成功！'
+      
+      // 刷新课程列表和日历数据
+      const courseStore = useCourseStore()
+      const entryStore = useEntryStore()
+      
+      // 获取最新的课程列表
+      const coursesResponse = await coursesAPI.getCourses()
+      courseStore.setCourses(coursesResponse.courses)
+      
+      // 获取最新的entries数据并更新store，这样CalendarView会自动刷新
+      const entriesResponse = await entriesAPI.getEntriesByDate(date)
+      const entries = Array.isArray(entriesResponse) ? entriesResponse : (entriesResponse.entries || [])
+      entryStore.setEntries(entries)
+    } else {
+      // 同步失败
+      const errorMessage = syncResponse && syncResponse.message ? syncResponse.message : '同步失败，请稍后重试'
+      syncStatus.value = `同步失败: ${errorMessage}`
+      console.error('同步课程表失败:', syncResponse)
+    }
     
     // 清空密码
     buaaPassword.value = ''
@@ -322,6 +338,7 @@ const syncBuaaCourses = async () => {
     if (error.response) {
       // 服务器返回错误
       const errorData = error.response.data
+      console.error('同步课程表失败，服务器返回错误:', errorData)
       if (error.response.status === 401) {
         // 认证错误
         syncStatus.value = `北航登录失败: ${errorData.message || '请检查学号和密码'}`
@@ -334,9 +351,11 @@ const syncBuaaCourses = async () => {
       }
     } else if (error.request) {
       // 请求已发送但没有收到响应
+      console.error('同步课程表失败，没有收到服务器响应:', error.request)
       syncStatus.value = '请求失败: 无法连接到服务器'
     } else {
       // 请求配置错误
+      console.error('同步课程表失败，请求配置错误:', error.message)
       syncStatus.value = `请求失败: ${error.message}`
     }
   } finally {
