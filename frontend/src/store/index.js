@@ -5,7 +5,8 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     userInfo: null,
     buaaId: null,
-    buaaCookies: null
+    buaaCookies: null,
+    avatarUrl: null
   }),
   
   actions: {
@@ -13,6 +14,7 @@ export const useUserStore = defineStore('user', {
     setUserInfo(info) {
       this.userInfo = info
       this.buaaId = info.buaa_id
+      this.avatarUrl = info.avatar_url || null
       if (info.buaa_cookies) {
         this.buaaCookies = info.buaa_cookies
       }
@@ -34,11 +36,20 @@ export const useUserStore = defineStore('user', {
       }
     },
     
+    // 更新头像URL
+    updateAvatarUrl(avatarUrl) {
+      this.avatarUrl = avatarUrl
+      if (this.userInfo) {
+        this.userInfo.avatar_url = avatarUrl
+      }
+    },
+    
     // 清除用户信息
     clearUserInfo() {
       this.userInfo = null
       this.buaaId = null
       this.buaaCookies = null
+      this.avatarUrl = null
     }
   }
 })

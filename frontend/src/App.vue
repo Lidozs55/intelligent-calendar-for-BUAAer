@@ -5,6 +5,12 @@
       <header class="app-header">
         <h1>智能日程助手 - 北航版</h1>
         <div class="header-actions">
+          <!-- 用户头像 -->
+          <div class="user-avatar-container" @click="toggleSettings">
+            <img v-if="userStore.avatarUrl" :src="userStore.avatarUrl" alt="用户头像" class="user-avatar">
+            <div v-else class="user-avatar-placeholder">{{ getInitials() }}</div>
+          </div>
+          
           <button @click="goToSmartInput" class="header-btn compact-btn">
             <span class="btn-icon">✏️</span>
             <span class="btn-text">智能输入</span>
@@ -305,6 +311,14 @@ const autoCheckClipboard = async () => {
   }
 }
 
+// 获取用户姓名首字母作为头像占位符
+const getInitials = () => {
+  if (userStore.userInfo?.name) {
+    return userStore.userInfo.name.charAt(0).toUpperCase()
+  }
+  return 'U'
+}
+
 // 切换设置面板
 const toggleSettings = () => {
   showSettings.value = !showSettings.value
@@ -519,6 +533,42 @@ p, span, div, button {
   font-size: 1rem;
   transition: background-color 0.3s ease, transform 0.2s ease;
   margin-left: 0.5rem;
+}
+
+/* 用户头像样式 */
+.user-avatar-container {
+  position: relative;
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+.user-avatar,
+.user-avatar-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.user-avatar {
+  object-fit: cover;
+}
+
+.user-avatar-placeholder {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.user-avatar-container:hover .user-avatar,
+.user-avatar-container:hover .user-avatar-placeholder {
+  border-color: var(--primary-light);
+  transform: scale(1.05);
 }
 
 /* 紧凑按钮样式 - 统一固定宽度和对齐 */

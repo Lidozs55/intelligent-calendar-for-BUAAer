@@ -300,7 +300,7 @@ const calendarOptions = {
         duration: { days: 7 },
         // 每天从4:00开始显示
         slotMinTime: '04:00:00',
-        // 每天显示到28:00（即第二天的4:00）
+        // 每天显示到第二天凌晨4:00，确保完整显示所有可能的日程
         slotMaxTime: '28:00:00',
         // 每小时一个时间段
         slotDuration: '01:00:00',
