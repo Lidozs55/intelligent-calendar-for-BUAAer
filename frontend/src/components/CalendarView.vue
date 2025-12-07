@@ -453,6 +453,28 @@ eventClick: (clickInfo) => {
         dropInfo.revert()
         return
       } else {
+        // 保存原事件状态到撤销栈
+        const originalEvent = {
+          id: dropInfo.event.id,
+          start: dropInfo.oldEvent.start,
+          end: dropInfo.oldEvent.end,
+          title: dropInfo.event.title,
+          backgroundColor: dropInfo.event.backgroundColor,
+          borderColor: dropInfo.event.borderColor,
+          extendedProps: { ...dropInfo.event.extendedProps }
+        }
+        
+        // 清空重做栈
+        redoStack.value = []
+        
+        // 将原事件状态存入撤销栈
+        undoStack.value.push(originalEvent)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+        
         // 允许拖动，保存数据到数据库
         console.log('保存拖动后的事件到数据库:', dropInfo.event)
         
@@ -483,6 +505,80 @@ eventClick: (clickInfo) => {
         } catch (error) {
           console.error('保存事件到数据库失败:', error)
           dropInfo.revert()
+          alert('保存失败，请重试')
+        }
+      }
+    },
+    
+    // 调整事件大小结束事件
+    eventResize: async (resizeInfo) => {
+      console.log('调整了事件大小:', resizeInfo)
+      console.log('事件ID:', resizeInfo.event.id)
+      console.log('事件类型:', resizeInfo.event.extendedProps.type)
+      
+      // 获取事件类型
+      const eventType = resizeInfo.event.extendedProps.type || ''
+      
+      // 检查是否允许调整大小（与eventAllow逻辑相同）
+      const resizeBlacklist = ['course', 'lecture', 'exam'] // 不允许调整大小的事件类型
+      
+      if (resizeBlacklist.includes(eventType)) {
+        // 不允许调整大小，恢复原状
+        resizeInfo.revert()
+        return
+      } else {
+        // 保存原事件状态到撤销栈
+        const originalEvent = {
+          id: resizeInfo.event.id,
+          start: resizeInfo.oldEvent.start,
+          end: resizeInfo.oldEvent.end,
+          title: resizeInfo.event.title,
+          backgroundColor: resizeInfo.event.backgroundColor,
+          borderColor: resizeInfo.event.borderColor,
+          extendedProps: { ...resizeInfo.event.extendedProps }
+        }
+        
+        // 清空重做栈
+        redoStack.value = []
+        
+        // 将原事件状态存入撤销栈
+        undoStack.value.push(originalEvent)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+        
+        // 允许调整大小，保存数据到数据库
+        console.log('保存调整大小后的事件到数据库:', resizeInfo.event)
+        
+        try {
+          // 构建条目数据
+          // 格式化日期时间为datetime-local格式（本地时间），不包含时区信息
+          const formatDateTime = (date) => {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            const hours = String(date.getHours()).padStart(2, '0')
+            const minutes = String(date.getMinutes()).padStart(2, '0')
+            return `${year}-${month}-${day}T${hours}:${minutes}`
+          }
+          
+          const entryData = {
+            title: resizeInfo.event.title,
+            description: '',
+            entry_type: eventType,
+            start_time: formatDateTime(resizeInfo.event.start),
+            end_time: formatDateTime(resizeInfo.event.end),
+            color: resizeInfo.event.backgroundColor
+          }
+          
+          // 调用API更新条目
+          await entriesAPI.updateEntry(resizeInfo.event.id, entryData)
+          console.log('事件已保存到数据库:', resizeInfo.event)
+        } catch (error) {
+          console.error('保存事件到数据库失败:', error)
+          resizeInfo.revert()
           alert('保存失败，请重试')
         }
       }
