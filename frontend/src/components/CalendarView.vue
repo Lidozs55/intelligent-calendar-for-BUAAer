@@ -1,5 +1,10 @@
 <template>
   <div class="calendar-container">
+    <!-- 顶部日期展示 -->
+    <div class="top-date-display">
+      <span class="current-date">{{ new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }) }}</span>
+    </div>
+    
     <!-- 快速跳转功能 -->
     <div class="quick-jump-container">
       <button 
@@ -1165,12 +1170,16 @@ watch(() => entryStore.entries, (newEntries) => {
   display: block;
 }
 
-/* 快速跳转功能样式 */
+/* 快速跳转功能样式 - 增强可见性 */
 .quick-jump-container {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 1000;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 0.75rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
 .quick-jump-btn {
@@ -1181,8 +1190,14 @@ watch(() => entryStore.entries, (newEntries) => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
+.quick-jump-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
 }
 
 .quick-jump-btn:hover {
@@ -1235,20 +1250,27 @@ watch(() => entryStore.entries, (newEntries) => {
 
 .calendar-grid {
   width: 100%;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 0.75rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   margin-bottom: 0.5rem;
+  gap: 2px;
 }
 
 .weekday {
   text-align: center;
   font-size: 0.8rem;
-  font-weight: 500;
-  color: #666;
+  font-weight: 600;
+  color: var(--text-primary);
   padding: 0.5rem 0;
+  background-color: rgba(245, 245, 245, 0.8);
+  border-radius: 4px;
 }
 
 .days {
@@ -1268,6 +1290,8 @@ watch(() => entryStore.entries, (newEntries) => {
   font-size: 0.9rem;
   transition: all 0.2s ease;
   border: 1px solid transparent;
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
 .day:hover {
@@ -1301,9 +1325,39 @@ watch(() => entryStore.entries, (newEntries) => {
   width: 14.28% !important; /* 7天，每天约14.28% */
 }
 
+/* 弱化表格线：浅灰色细虚线 */
+:deep(.fc-timegrid-divider) {
+  border-color: #e0e0e0 !important;
+  border-style: dashed !important;
+  z-index: 0 !important;
+}
+
+:deep(.fc-timegrid-col-bg .fc-timegrid-slot) {
+  border-color: #e0e0e0 !important;
+  border-style: dashed !important;
+}
+
+:deep(.fc-timegrid-axis) {
+  border-right: 1px dashed #e0e0e0 !important;
+  z-index: 0 !important;
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  font-size: 0.8rem !important;
+}
+
+/* 增强列标题可见性 */
+:deep(.fc-day-header) {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px dashed #e0e0e0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
 /* 在23:00和0:00的分界位置添加加粗的黑线 */
 :deep(.fc-timegrid-view .fc-timegrid-slot[data-time="23:00:00"]) {
-  border-bottom: 3px solid #000000 !important;
+  border-bottom: 2px solid #000000 !important;
+  border-style: solid !important;
   position: relative;
   z-index: 1 !important;
 }
@@ -1318,30 +1372,61 @@ watch(() => entryStore.entries, (newEntries) => {
 :deep(.fc-timegrid-view .fc-event) {
   position: relative;
   z-index: 2 !important;
-}
-
-/* 确保网格线的z-index低于分隔线 */
-:deep(.fc-timegrid-divider) {
-  z-index: 0 !important;
-}
-
-/* 确保时间轴的z-index低于分隔线 */
-:deep(.fc-timegrid-axis) {
-  z-index: 0 !important;
+  transition: all 0.2s ease !important;
 }
 
 /* 确保时间段显示完整并保留滚动条 */
 :deep(.fc-scroller) {
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  max-height: calc(100vh - 220px) !important;
+  max-height: calc(100vh - 300px) !important;
   position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) transparent;
 }
 
-/* 调整日程块样式：字体适当缩小，增加内边距 */
+/* 确保23点格子完整显示，隐藏24点 */
+:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="23:00:00"]) {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  height: auto !important;
+}
+
+/* 完全隐藏24点时间槽 */
+:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="24:00:00"]) {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 优化日程块样式：圆角、阴影、字体 */
 :deep(.fc-event) {
   font-size: 0.75rem !important;
-  padding: 0px 4px !important;
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  border: none !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 日程块hover效果 */
+:deep(.fc-event:hover) {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 顶部日期展示样式 */
+.top-date-display {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: var(--bg-secondary);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px var(--shadow-color);
 }
 
 /* 调整FullCalendar按钮样式 */

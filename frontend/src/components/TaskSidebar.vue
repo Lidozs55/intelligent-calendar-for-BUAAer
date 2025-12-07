@@ -4,10 +4,19 @@
     <h2>任务管理</h2>
   </div>
   
-  <!-- 任务统计和进度条合并区域 -->
-  <div class="stats-progress-section">
-    <!-- 任务统计信息 -->
-    <div class="task-stats">
+  <!-- 任务统计进度卡片 -->
+  <div class="task-progress-card">
+    <div class="progress-circle-container">
+      <div class="progress-circle">
+        <svg class="progress-svg" width="80" height="80" viewBox="0 0 100 100">
+          <circle class="progress-bg" cx="50" cy="50" r="40" fill="none" stroke="#e0e0e0" stroke-width="8" />
+          <circle class="progress-bar" cx="50" cy="50" r="40" fill="none" stroke="var(--primary-color)" stroke-width="8" stroke-linecap="round" :stroke-dasharray="251.2" :stroke-dashoffset="251.2 - (251.2 * progressPercentage / 100)" transform="rotate(-90 50 50)" />
+        </svg>
+        <div class="progress-text">{{ progressPercentage }}%</div>
+      </div>
+    </div>
+    
+    <div class="progress-stats">
       <div class="stat-item">
         <span class="stat-label">待完成</span>
         <span class="stat-value">{{ tasks.length }}</span>
@@ -15,20 +24,6 @@
       <div class="stat-item">
         <span class="stat-label">已完成</span>
         <span class="stat-value">{{ completedTasks.length }}</span>
-      </div>
-      <div class="stat-item progress-stat">
-        <span class="stat-label">完成率</span>
-        <span class="stat-value">{{ progressPercentage }}%</span>
-      </div>
-    </div>
-    
-    <!-- 任务进度条 -->
-    <div class="progress-bar-container">
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: `${progressPercentage}%` }"></div>
-      </div>
-      <div class="progress-details">
-        <span>已完成 {{ completedTasks.length }} / {{ totalTasks }} 个任务</span>
       </div>
     </div>
   </div>
@@ -132,9 +127,8 @@
     </div>
   </div>
     
-    <div class="sidebar-footer">
-      <button class="add-task-btn" @click="addNewTask">+ 添加任务</button>
-    </div>
+    <!-- 悬浮添加任务按钮 -->
+    <button class="floating-add-btn" @click="addNewTask">+</button>
     
     <!-- 任务编辑弹窗 -->
     <div v-if="showTaskModal" class="modal-overlay" @click="closeTaskModal">
@@ -810,37 +804,107 @@ const emit = defineEmits(['add-task', 'start-focus'])
   color: var(--text-secondary);
 }
 
-/* 任务统计和进度条合并样式 */
-.stats-progress-section {
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 0.75rem;
+/* 任务进度卡片样式 */
+.task-progress-card {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 圆形进度条样式 */
+.progress-circle-container {
   margin-bottom: 0.75rem;
 }
 
-.progress-bar-container {
-  margin-top: 0.5rem;
+.progress-circle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-svg {
+  transform: rotate(-90deg);
+}
+
+.progress-bg {
+  stroke: #e0e0e0;
 }
 
 .progress-bar {
-  height: 6px;
-  background-color: #e0e0e0;
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
+  stroke: var(--primary-color);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
 }
 
-.progress-fill {
-  height: 100%;
-  background-color: var(--primary-color);
-  border-radius: 3px;
-  transition: width 0.3s ease;
+.progress-text {
+  position: absolute;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary-color);
 }
 
-.progress-details {
-  font-size: 0.75rem;
-  color: #666;
+/* 进度统计信息 */
+.progress-stats {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  gap: 1rem;
+}
+
+.stat-item {
   text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 悬浮添加任务按钮 */
+.floating-add-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  font-size: 1.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.floating-add-btn:hover {
+  background-color: var(--primary-dark);
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.floating-add-btn:active {
+  transform: scale(0.95);
 }
 
 /* 即将到期任务样式 */

@@ -5,10 +5,22 @@
       <header class="app-header">
         <h1>智能日程助手 - 北航版</h1>
         <div class="header-actions">
-          <button @click="goToSmartInput" class="header-btn">智能输入中心</button>
-          <button @click="enterFocusMode" class="header-btn">专注模式</button>
-          <button @click="toggleHelp" class="header-btn">帮助</button>
-          <button @click="toggleSettings" class="header-btn">设置</button>
+          <button @click="goToSmartInput" class="header-btn compact-btn">
+            <span class="btn-icon">✏️</span>
+            <span class="btn-text">智能输入</span>
+          </button>
+          <button @click="enterFocusMode" class="header-btn compact-btn">
+            <span class="btn-icon">🎯</span>
+            <span class="btn-text">专注模式</span>
+          </button>
+          <button @click="toggleHelp" class="header-btn compact-btn">
+            <span class="btn-icon">❓</span>
+            <span class="btn-text">帮助</span>
+          </button>
+          <button @click="toggleSettings" class="header-btn compact-btn">
+            <span class="btn-icon">⚙️</span>
+            <span class="btn-text">设置</span>
+          </button>
         </div>
       </header>
       
@@ -423,10 +435,20 @@ settingsStore.$subscribe(updateNotificationCheck)
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Microsoft YaHei', 'Source Han Sans CN', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Microsoft YaHei', 'Source Han Sans CN', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-weight: 600;
+}
+
+/* 内容字体轻量化 */
+p, span, div, button {
+  font-weight: 400;
 }
 
 /* 深色模式下的表单元素样式 */
@@ -468,7 +490,7 @@ body {
 .app-header {
   background-color: var(--bg-header);
   color: white;
-  padding: 0.75rem 2rem;
+  padding: 0.4rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -478,7 +500,7 @@ body {
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 500;
 }
 
@@ -490,16 +512,67 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
   margin-left: 0.5rem;
 }
 
-.header-actions button:first-child {
-  margin-left: 0;
+/* 紧凑按钮样式 - 统一固定宽度和对齐 */
+.compact-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.5rem;
+  width: 90px;
+  height: 32px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin-left: 0.4rem;
 }
 
+/* 统一所有按钮样式，包括第一个按钮 */
+.header-actions button {
+  /* 重置默认按钮样式 */
+  all: unset;
+  /* 应用统一样式 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.5rem;
+  width: 90px;
+  height: 32px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-left: 0.4rem;
+}
+
+/* 第一个按钮特殊处理 - 取消左侧margin */
+.header-actions button:first-child {
+  margin-left: 0 !important;
+}
+
+.btn-icon {
+  font-size: 1rem;
+  width: 16px;
+  text-align: center;
+}
+
+.btn-text {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* 统一按钮悬停效果 */
 .header-actions button:hover {
   background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 .app-main {
