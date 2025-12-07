@@ -478,9 +478,9 @@ const clearParse = () => {
 }
 
 .tool-btn.active {
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
-  border-color: #4a90e2;
+  border-color: var(--primary-color);
 }
 
 .input-area {
@@ -508,8 +508,8 @@ const clearParse = () => {
 
 .input-area textarea:focus {
   outline: none;
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
 }
 
 /* 拖拽样式 */
@@ -523,7 +523,7 @@ const clearParse = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(74, 144, 226, 0.7);
+  background-color: rgba(var(--primary-color-rgb), 0.7);
   color: white;
   display: flex;
   justify-content: center;
@@ -563,7 +563,7 @@ const clearParse = () => {
   padding: 0.625rem 1.75rem;
   border: none;
   border-radius: 4px;
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -571,7 +571,7 @@ const clearParse = () => {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: #357abd;
+  background-color: var(--primary-dark);
 }
 
 .submit-btn:disabled {
@@ -585,9 +585,9 @@ const clearParse = () => {
   gap: 1rem;
   margin-top: 1rem;
   padding: 0.875rem;
-  background-color: #e3f2fd;
+  background-color: var(--primary-light);
   border-radius: 4px;
-  color: #1976d2;
+  color: var(--primary-dark);
   font-size: 1rem;
 }
 
@@ -601,7 +601,7 @@ const clearParse = () => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: #1976d2;
+  background-color: var(--primary-color);
   animation: pulse 1.5s infinite;
 }
 
@@ -661,7 +661,7 @@ const clearParse = () => {
   padding: 0.75rem;
   background-color: #f9f9f9;
   border-radius: 4px;
-  border-left: 3px solid #4a90e2;
+  border-left: 3px solid var(--primary-color);
 }
 
 .preview-item-header {
@@ -680,7 +680,7 @@ const clearParse = () => {
 .preview-item-type {
   font-size: 0.8rem;
   color: white;
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
 }
@@ -701,7 +701,7 @@ const clearParse = () => {
 .preview-item-detail::before {
   content: "•";
   margin-right: 0.25rem;
-  color: #4a90e2;
+  color: var(--primary-color);
 }
 
 .parse-status {
@@ -710,9 +710,9 @@ const clearParse = () => {
   gap: 1rem;
   margin-top: 1rem;
   padding: 0.875rem;
-  background-color: #e3f2fd;
+  background-color: var(--primary-light);
   border-radius: 4px;
-  color: #1976d2;
+  color: var(--primary-dark);
   font-size: 1rem;
 }
 
@@ -732,7 +732,7 @@ const clearParse = () => {
   padding: 0.625rem 1.75rem;
   border: none;
   border-radius: 4px;
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -740,7 +740,7 @@ const clearParse = () => {
 }
 
 .confirm-btn:hover {
-  background-color: #357abd;
+  background-color: var(--primary-dark);
 }
 
 .clear-btn {

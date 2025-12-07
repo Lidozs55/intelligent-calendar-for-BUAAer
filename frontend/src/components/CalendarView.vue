@@ -123,6 +123,9 @@ const undoStack = ref([])
 const redoStack = ref([])
 const MAX_UNDO_STEPS = 5
 
+// 当前页面显示的中心日期，用于API请求
+const currentViewDate = ref(new Date())
+
 // 快速跳转功能状态
 const showQuickJump = ref(false)
 const currentDate = ref(new Date())
@@ -332,18 +335,11 @@ const calendarOptions = {
       // 日历加载完成后再加载数据，确保calendarRef可用
       const initialDate = adjustInitialDate()
       fetchDataAndUpdateCalendar(initialDate)
-      
-      // 添加定时器定期检查并修复日历标题
-      setTimeout(() => {
-        fixCalendarTitle()
-      }, 100)
     },
     
     // 视图切换事件
     viewDidChange: () => {
-      setTimeout(() => {
-        fixCalendarTitle()
-      }, 100)
+      // 视图切换时不需要额外操作
     },
     
     // 日期渲染事件，用于自定义表头样式和日期导航
@@ -357,11 +353,6 @@ const calendarOptions = {
       // 当日期范围变化时，获取当前视图的中心日期并重新加载数据
       const centerDate = info.view.currentStart
       fetchDataAndUpdateCalendar(centerDate)
-      
-      // 修复日历标题
-      setTimeout(() => {
-        fixCalendarTitle()
-      }, 50)
       
       // 仅为周末添加浅蓝背景（节假日功能暂时禁用）
       setTimeout(() => {
@@ -467,6 +458,28 @@ eventClick: (clickInfo) => {
         dropInfo.revert()
         return
       } else {
+        // 保存原事件状态到撤销栈
+        const originalEvent = {
+          id: dropInfo.event.id,
+          start: dropInfo.oldEvent.start,
+          end: dropInfo.oldEvent.end,
+          title: dropInfo.event.title,
+          backgroundColor: dropInfo.event.backgroundColor,
+          borderColor: dropInfo.event.borderColor,
+          extendedProps: { ...dropInfo.event.extendedProps }
+        }
+        
+        // 清空重做栈
+        redoStack.value = []
+        
+        // 将原事件状态存入撤销栈
+        undoStack.value.push(originalEvent)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+        
         // 允许拖动，保存数据到数据库
         console.log('保存拖动后的事件到数据库:', dropInfo.event)
         
@@ -497,6 +510,80 @@ eventClick: (clickInfo) => {
         } catch (error) {
           console.error('保存事件到数据库失败:', error)
           dropInfo.revert()
+          alert('保存失败，请重试')
+        }
+      }
+    },
+    
+    // 调整事件大小结束事件
+    eventResize: async (resizeInfo) => {
+      console.log('调整了事件大小:', resizeInfo)
+      console.log('事件ID:', resizeInfo.event.id)
+      console.log('事件类型:', resizeInfo.event.extendedProps.type)
+      
+      // 获取事件类型
+      const eventType = resizeInfo.event.extendedProps.type || ''
+      
+      // 检查是否允许调整大小（与eventAllow逻辑相同）
+      const resizeBlacklist = ['course', 'lecture', 'exam'] // 不允许调整大小的事件类型
+      
+      if (resizeBlacklist.includes(eventType)) {
+        // 不允许调整大小，恢复原状
+        resizeInfo.revert()
+        return
+      } else {
+        // 保存原事件状态到撤销栈
+        const originalEvent = {
+          id: resizeInfo.event.id,
+          start: resizeInfo.oldEvent.start,
+          end: resizeInfo.oldEvent.end,
+          title: resizeInfo.event.title,
+          backgroundColor: resizeInfo.event.backgroundColor,
+          borderColor: resizeInfo.event.borderColor,
+          extendedProps: { ...resizeInfo.event.extendedProps }
+        }
+        
+        // 清空重做栈
+        redoStack.value = []
+        
+        // 将原事件状态存入撤销栈
+        undoStack.value.push(originalEvent)
+        
+        // 确保撤销栈不超过最大步数
+        if (undoStack.value.length > MAX_UNDO_STEPS) {
+          undoStack.value.shift()
+        }
+        
+        // 允许调整大小，保存数据到数据库
+        console.log('保存调整大小后的事件到数据库:', resizeInfo.event)
+        
+        try {
+          // 构建条目数据
+          // 格式化日期时间为datetime-local格式（本地时间），不包含时区信息
+          const formatDateTime = (date) => {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            const hours = String(date.getHours()).padStart(2, '0')
+            const minutes = String(date.getMinutes()).padStart(2, '0')
+            return `${year}-${month}-${day}T${hours}:${minutes}`
+          }
+          
+          const entryData = {
+            title: resizeInfo.event.title,
+            description: '',
+            entry_type: eventType,
+            start_time: formatDateTime(resizeInfo.event.start),
+            end_time: formatDateTime(resizeInfo.event.end),
+            color: resizeInfo.event.backgroundColor
+          }
+          
+          // 调用API更新条目
+          await entriesAPI.updateEntry(resizeInfo.event.id, entryData)
+          console.log('事件已保存到数据库:', resizeInfo.event)
+        } catch (error) {
+          console.error('保存事件到数据库失败:', error)
+          resizeInfo.revert()
           alert('保存失败，请重试')
         }
       }
@@ -561,6 +648,9 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
   loadingStatus.value = '正在获取日历数据...'
   
   try {
+    // 保存当前视图日期
+    currentViewDate.value = date
+    
     // 格式化日期为YYYY-MM-DD格式
     const formattedDate = date.toISOString().split('T')[0]
     
@@ -659,8 +749,9 @@ const updateCalendarEvents = (entries) => {
   const dragBlacklist = ['course', 'lecture', 'exam'] // 不允许拖动的事件类型
   
   // 将条目数据转换为FullCalendar所需的格式
-  let calendarEvents = entries.map(entry => {
-    return {
+  const calendarEventsMap = new Map()
+  entries.forEach(entry => {
+    calendarEventsMap.set(entry.id, {
       id: entry.id,
       title: truncateString(entry.title),
       start: entry.start_time,
@@ -673,31 +764,57 @@ const updateCalendarEvents = (entries) => {
         type: entry.entry_type, // 添加类型标识
         fullTitle: entry.title // 存储完整标题，用于编辑时显示
       }
-    }
+    })
   })
-  
-  console.log('最终的日历事件:', calendarEvents.map(event => ({
-    id: event.id,
-    title: event.title,
-    entry_type: event.extendedProps.type,
-    editable: event.editable
-  })))
   
   // 更新日历事件
   if (calendarRef.value) {
     const calendarApi = calendarRef.value.getApi()
-    calendarApi.removeAllEvents()
-    calendarApi.addEventSource(calendarEvents)
-    console.log('日历事件已更新')
+    
+    // 获取当前所有事件
+    const currentEvents = calendarApi.getEvents()
+    
+    // 遍历当前所有事件
+    currentEvents.forEach(event => {
+      // 如果是临时事件，保留它
+      if (event.extendedProps.isTemp) {
+        return
+      }
+      
+      // 如果是普通事件，检查是否在新的事件列表中
+      const eventId = event.id
+      if (calendarEventsMap.has(eventId)) {
+        // 如果在，更新事件
+        const updatedEvent = calendarEventsMap.get(eventId)
+        event.setStart(updatedEvent.start)
+        event.setEnd(updatedEvent.end)
+        event.setProp('title', updatedEvent.title)
+        event.setProp('backgroundColor', updatedEvent.backgroundColor)
+        event.setProp('borderColor', updatedEvent.borderColor)
+        // 由于FullCalendar没有setExtendedProp方法，我们需要重新创建事件
+        event.remove()
+        calendarApi.addEvent(updatedEvent)
+        
+        // 从map中移除，剩下的就是需要新增的事件
+        calendarEventsMap.delete(eventId)
+      } else {
+        // 如果不在，移除事件
+        event.remove()
+      }
+    })
+    
+    // 添加所有新的事件
+    calendarEventsMap.forEach(event => {
+      calendarApi.addEvent(event)
+    })
+    
+    console.log('日历事件已更新，新增了', calendarEventsMap.size, '个事件')
   } else {
     console.error('calendarRef.value为null，无法更新日历事件')
     // 如果calendarRef不可用，使用setTimeout重试
     setTimeout(() => {
       if (calendarRef.value) {
-        const calendarApi = calendarRef.value.getApi()
-        calendarApi.removeAllEvents()
-        calendarApi.addEventSource(calendarEvents)
-        console.log('延迟更新日历事件成功')
+        updateCalendarEvents(entries)
       }
     }, 500)
   }
@@ -756,10 +873,8 @@ const handleEventUpdate = async (eventData) => {
     }
     
     // 添加GET api/entries的逻辑，确保新建日程会立马显示
-    // 获取当前视图的中心日期
-    const currentDate = new Date()
-    // 格式化日期为YYYY-MM-DD格式
-    const formattedDate = currentDate.toISOString().split('T')[0]
+    // 使用当前视图的中心日期
+    const formattedDate = currentViewDate.value.toISOString().split('T')[0]
     // 调用API获取所有条目，刷新前端
     const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
     const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
@@ -826,6 +941,22 @@ const handleEventDelete = async (eventId) => {
     if (eventToRemove) {
       eventToRemove.remove()
     }
+  }
+  
+  // 添加GET api/entries的逻辑，确保删除后日历数据准确
+  try {
+    // 使用当前视图的中心日期
+    const formattedDate = currentViewDate.value.toISOString().split('T')[0]
+    // 调用API获取所有条目，刷新前端
+    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+    const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
+    // 更新entryStore.entries数组
+    entryStore.setEntries(refreshedEntries)
+    // 更新日历事件
+    updateCalendarEvents(refreshedEntries)
+    console.log('已刷新日历，删除的日程已更新')
+  } catch (error) {
+    console.error('刷新日历失败:', error)
   }
 }
 
@@ -911,7 +1042,7 @@ const handleUndo = async () => {
           backgroundColor: lastOperation.backgroundColor,
           borderColor: lastOperation.borderColor,
           allDay: false,
-          editable: true,
+          editable: !['course', 'lecture', 'exam'].includes(lastOperation.extendedProps.type),
           extendedProps: { ...lastOperation.extendedProps }
         })
         
@@ -934,8 +1065,19 @@ const handleUndo = async () => {
           color: lastOperation.backgroundColor
         }
         
-        await entriesAPI.updateEntry(lastOperation.id, entryData)
-        console.log('撤销删除操作成功，重新创建了事件')
+        // 检查事件是否已经存在于数据库中
+        try {
+          // 尝试更新事件
+          await entriesAPI.updateEntry(lastOperation.id, entryData)
+          console.log('撤销删除操作成功，更新了事件')
+        } catch (updateError) {
+          // 如果更新失败，可能是因为事件不存在，尝试重新创建
+          await entriesAPI.addEntry({
+            ...entryData,
+            id: lastOperation.id
+          })
+          console.log('撤销删除操作成功，重新创建了事件')
+        }
       }
     }
   } catch (error) {
@@ -961,9 +1103,9 @@ const handleRedo = async () => {
       
       // 查找当前事件
       const currentEvent = calendarApi.getEventById(lastOperation.id)
+      
+      // 将当前状态存入撤销栈，以便可以再次撤销
       if (currentEvent) {
-        // 情况1：事件存在，执行重做操作（可能是删除或修改）
-        // 将当前事件状态存入撤销栈
         const currentState = {
           id: currentEvent.id,
           start: currentEvent.start,
@@ -980,94 +1122,60 @@ const handleRedo = async () => {
           undoStack.value.shift()
         }
         
-        // 删除事件（重做删除操作）
+        // 移除当前事件，准备重做
         currentEvent.remove()
-        
-        // 调用API删除服务器上的事件
-        await entriesAPI.deleteEntry(lastOperation.id)
-        console.log('重做删除操作成功')
-      } else {
-        // 情况2：事件不存在，执行重做修改操作
-        // 将当前操作存入撤销栈
-        undoStack.value.push(lastOperation)
-        
-        // 确保撤销栈不超过最大步数
-        if (undoStack.value.length > MAX_UNDO_STEPS) {
-          undoStack.value.shift()
-        }
-        
-        // 重新创建事件并应用修改
-        const newEvent = calendarApi.addEvent({
-          id: lastOperation.id,
-          title: lastOperation.title,
-          start: lastOperation.start,
-          end: lastOperation.end,
-          backgroundColor: lastOperation.backgroundColor,
-          borderColor: lastOperation.borderColor,
-          allDay: false,
-          editable: true,
-          extendedProps: { ...lastOperation.extendedProps }
-        })
-        
-        // 调用API更新服务器
-        const formatDateTime = (date) => {
-          const year = date.getFullYear()
-          const month = String(date.getMonth() + 1).padStart(2, '0')
-          const day = String(date.getDate()).padStart(2, '0')
-          const hours = String(date.getHours()).padStart(2, '0')
-          const minutes = String(date.getMinutes()).padStart(2, '0')
-          return `${year}-${month}-${day}T${hours}:${minutes}`
-        }
-        
-        const entryData = {
-          title: lastOperation.title,
-          description: '',
-          entry_type: lastOperation.extendedProps.type,
-          start_time: formatDateTime(lastOperation.start),
-          end_time: formatDateTime(lastOperation.end),
-          color: lastOperation.backgroundColor
-        }
-        
+      }
+      
+      // 无论事件是否存在，都重新创建事件并应用修改
+      const newEvent = calendarApi.addEvent({
+        id: lastOperation.id,
+        title: lastOperation.title,
+        start: lastOperation.start,
+        end: lastOperation.end,
+        backgroundColor: lastOperation.backgroundColor,
+        borderColor: lastOperation.borderColor,
+        allDay: false,
+        editable: !['course', 'lecture', 'exam'].includes(lastOperation.extendedProps.type),
+        extendedProps: { ...lastOperation.extendedProps }
+      })
+      
+      // 调用API更新服务器
+      const formatDateTime = (date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const hours = String(date.getHours()).padStart(2, '0')
+        const minutes = String(date.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      }
+      
+      const entryData = {
+        title: lastOperation.title,
+        description: '',
+        entry_type: lastOperation.extendedProps.type,
+        start_time: formatDateTime(lastOperation.start),
+        end_time: formatDateTime(lastOperation.end),
+        color: lastOperation.backgroundColor
+      }
+      
+      // 检查事件是否已经存在于数据库中
+      try {
+        // 尝试更新事件
         await entriesAPI.updateEntry(lastOperation.id, entryData)
         console.log('重做修改操作成功')
+      } catch (updateError) {
+        // 如果更新失败，可能是因为事件不存在，尝试重新创建
+        await entriesAPI.addEntry({
+          ...entryData,
+          id: lastOperation.id
+        })
+        console.log('重做添加操作成功')
       }
     }
   } catch (error) {
     console.error('重做操作失败:', error)
     // 重做失败时，将操作放回重做栈
     redoStack.value.push(lastOperation)
-  }
-}
-
-// 修复日历标题，将结束日期减1天
-const fixCalendarTitle = () => {
-  const titleEl = document.querySelector('.fc-toolbar-title')
-  if (titleEl) {
-    const titleText = titleEl.textContent
-    // 匹配日期范围格式：YYYY年MM月DD日 – YYYY年MM月DD日
-    const dateRangeRegex = /(\d{4})年(\d{1,2})月(\d{1,2})日 – (\d{4})年(\d{1,2})月(\d{1,2})日/;
-    const match = titleText.match(dateRangeRegex)
-    console.log("fix calendar title")
-    if (match) {
-      console.log("fixing calendar title")
-      // 解析日期
-      const endYear = parseInt(match[4])
-      const endMonth = parseInt(match[5]) - 1 // 月份转为0-11
-      const endDay = parseInt(match[6])
-      
-      // 创建结束日期对象并减1天
-      const endDate = new Date(endYear, endMonth, endDay)
-      endDate.setDate(endDate.getDate() - 1)
-      
-      // 格式化新的结束日期
-      const newEndYear = endDate.getFullYear()
-      const newEndMonth = endDate.getMonth() + 1 // 月份转为1-12
-      const newEndDay = endDate.getDate()
-      
-      // 构建新的标题文本
-      const newTitle = `${match[1]}年${match[2]}月${match[3]}日 – ${newEndYear}年${newEndMonth}月${newEndDay}日`
-      titleEl.textContent = newTitle
-    }
   }
 }
 

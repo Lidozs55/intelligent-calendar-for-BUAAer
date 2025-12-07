@@ -144,6 +144,41 @@ intelligent-calendar-for-BUAAer/
    
    构建产物将生成在 `dist` 目录。
 
+## 常见问题与解决方案
+
+### 1. EasyOCR 模型加载失败
+
+**问题描述**：运行应用时出现 EasyOCR 相关错误，如闪退、下载超时或模型加载失败。
+
+**解决方案**：
+
+#### 方案 1：手动安装 EasyOCR 模型
+
+1. 下载详细的模型安装指南：[EASY_OCR_MODEL_INSTALL_GUIDE.md](EASY_OCR_MODEL_INSTALL_GUIDE.md)
+2. 按照指南手动下载并安装以下模型文件：
+   - `detector.tar.gz`
+   - `zh_sim_g2.zip`
+   - `en_g2.zip`
+3. 将模型文件解压到 `~/.EasyOCR/model/` 目录
+4. 重启应用即可使用
+
+#### 方案 2：跳过 OCR 功能
+
+如果您不需要图片识别功能，可以修改代码跳过 OCR 初始化：
+
+1. 打开 `backend/routes/llm.py` 文件
+2. 注释掉 EasyOCR 初始化代码：
+   ```python
+   # reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+   ```
+3. 重启后端服务
+
+#### 方案 3：使用其他 OCR 服务
+
+考虑使用国内友好的 OCR 服务替代 EasyOCR：
+- **PaddleOCR**：百度开源的 OCR 库，国内网络友好
+- **百度 OCR API**：在线 OCR 服务，无需本地模型
+
 ## 运行说明
 
 ### 开发环境

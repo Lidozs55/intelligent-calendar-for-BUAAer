@@ -6,7 +6,15 @@ import io
 import os
 
 # 初始化easyocr阅读器（只需要初始化一次）
-reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+import sys
+# 检查是否运行在PyInstaller打包的exe环境中
+if hasattr(sys, '_MEIPASS'):
+    # 打包为exe时，使用本地model目录下的模型
+    model_path = os.path.join(sys._MEIPASS, 'model')
+    reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, model_storage_directory=model_path)
+else:
+    # 开发环境下，使用默认的用户目录下的模型
+    reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
 
 # 创建蓝图
 llm_bp = Blueprint('llm', __name__)
