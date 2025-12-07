@@ -20,12 +20,12 @@
               <div class="avatar-upload-options">
                 <input 
                   type="file" 
-                  id="avatar-upload" 
+                  ref="avatarUpload" 
                   accept="image/*" 
                   @change="handleAvatarUpload" 
                   style="display: none;"
                 />
-                <button type="button" class="save-btn" @click="document.getElementById('avatar-upload').click()">
+                <button type="button" class="save-btn" @click="$refs.avatarUpload.click()">
                   上传头像
                 </button>
                 <button v-if="avatarUrl" type="button" class="cancel-btn" @click="removeAvatar">
