@@ -60,7 +60,7 @@ const handleUseClipboardItem = (text) => {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 2rem;
-  background-color: #4a90e2;
+  background-color: var(--bg-header);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 

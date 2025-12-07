@@ -151,8 +151,13 @@ const appStyle = computed(() => {
   // 生成深色调版本：用于深色主题
   const darkVersion = getDarkVersion(defaultColor)
   
+  // 解析颜色为RGB
+  const rgb = hexToRgb(defaultColor)
+  const rgbStr = rgb ? `${rgb.r}, ${rgb.g}, ${rgb.b}` : '74, 144, 226'
+  
   return {
     '--primary-color': defaultColor,
+    '--primary-color-rgb': rgbStr,
     '--primary-light': lightVersion,
     '--primary-dark': darkVersion,
     '--bg-header': defaultColor,
