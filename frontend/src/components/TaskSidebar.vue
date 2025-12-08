@@ -95,32 +95,32 @@
           class="task-item"
           :class="{ completed: task.completed }"
         >
-          <div class="task-checkbox">
-            <input 
-              type="checkbox" 
-              :checked="task.completed" 
-              @change="toggleTaskCompletion(task)"
-            />
-          </div>
-          
-          <div class="task-content">
+          <div class="task-header">
+            <div class="task-checkbox">
+              <input 
+                type="checkbox" 
+                :checked="task.completed" 
+                @change="toggleTaskCompletion(task)"
+              />
+            </div>
             <h3 class="task-title">{{ task.title }}</h3>
-            <p v-if="task.description" class="task-description">{{ task.description }}</p>
-            <div class="task-meta">
+            <div class="task-meta-right">
               <span class="task-type">{{ getTaskTypeLabel(task.task_type) }}</span>
-              <span v-if="task.deadline" class="task-deadline">
-                {{ formatDate(task.deadline) }}
-              </span>
               <span class="task-priority" :class="task.priority">
                 {{ getPriorityLabel(task.priority) }}
               </span>
             </div>
           </div>
+          <p v-if="task.description" class="task-description">{{ task.description }}</p>
+          <div class="task-meta">
+            <span v-if="task.deadline" class="task-deadline">
+              {{ formatDate(task.deadline) }}
+            </span>
+          </div>
           
           <div class="task-actions">
             <button @click="editTask(task)">编辑</button>
             <button @click="deleteTask(task.id)">删除</button>
-            <button class="focus-btn" @click="startFocus(task)">开始专注</button>
           </div>
         </div>
       </div>
@@ -328,11 +328,13 @@ const toggleTaskCompletion = async (task) => {
 // 添加新任务
 const addNewTask = () => {
   editingTask.value = null
+  // 设置截止日期为今天的日期
+  const today = new Date()
   formData.value = {
     title: '',
     description: '',
     task_type: 'individual_homework',
-    deadline: '',
+    deadline: formatDateTimeForInput(today),
     priority: 'medium',
     completed: false
   }
@@ -589,8 +591,8 @@ const emit = defineEmits(['add-task', 'start-focus'])
 
 .task-item {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.75rem;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -612,7 +614,9 @@ const emit = defineEmits(['add-task', 'start-focus'])
 }
 
 .task-checkbox {
-  margin-top: 0.25rem;
+  margin-right: 0.75rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
 }
 
 /* 自定义复选框样式 */
@@ -620,15 +624,28 @@ const emit = defineEmits(['add-task', 'start-focus'])
   accent-color: var(--primary-color);
 }
 
-.task-content {
-  flex: 1;
+
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.task-meta-right {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .task-title {
   font-size: 1rem;
   font-weight: 500;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0;
   color: #333;
+  flex: 1;
 }
 
 .task-description {
@@ -648,6 +665,7 @@ const emit = defineEmits(['add-task', 'start-focus'])
   color: #1976d2;
   padding: 0.125rem 0.5rem;
   border-radius: 12px;
+  font-size: 0.7rem;
 }
 
 .task-deadline {
@@ -658,6 +676,7 @@ const emit = defineEmits(['add-task', 'start-focus'])
   padding: 0.125rem 0.5rem;
   border-radius: 12px;
   font-weight: 500;
+  font-size: 0.7rem;
 }
 
 .task-priority.low {
@@ -682,8 +701,9 @@ const emit = defineEmits(['add-task', 'start-focus'])
 
 .task-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  justify-content: flex-start;
 }
 
 .task-actions button {
@@ -879,7 +899,7 @@ const emit = defineEmits(['add-task', 'start-focus'])
 .floating-add-btn {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   width: 56px;
   height: 56px;
   border-radius: 50%;

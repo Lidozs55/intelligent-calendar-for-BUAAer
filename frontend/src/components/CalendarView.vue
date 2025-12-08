@@ -5,14 +5,26 @@
       <span class="current-date">{{ new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }) }}</span>
     </div>
     
-    <!-- 快速跳转功能 -->
-    <div class="quick-jump-container">
-      <button 
-        class="quick-jump-btn"
-        @click="toggleQuickJump"
+    <!-- 功能按钮区 -->
+    <div class="function-buttons">
+      <!-- 快速跳转功能 -->
+      <div class="quick-jump-container">
+        <button 
+          class="quick-jump-btn"
+          @click="toggleQuickJump"
+        >
+          快速跳转
+        </button>
+      </div>
+      
+      <!-- 批量添加按钮 -->
+      <button
+        class="batch-add-btn"
+        @click="showBatchAddModal = true"
       >
-        快速跳转
+        + 创建日常任务
       </button>
+    </div>
       
       <!-- 快速跳转小日历 -->
       <div v-if="showQuickJump" class="quick-jump-calendar">
@@ -39,6 +51,10 @@
               @click="selectDateAndJump(day)"
             >
               {{ day }}
+              <div 
+                class="schedule-indicator" 
+                :style="{ backgroundColor: getIndicatorColor(calculateImportanceLevel(day)) }"
+              ></div>
             </div>
             <div 
               class="day empty" 
@@ -48,7 +64,6 @@
           </div>
         </div>
       </div>
-    </div>
     
     <!-- 加载状态提示 - 角落小提示 -->
     <div v-if="isLoading" class="loading-corner">
@@ -69,6 +84,13 @@
       @update="handleEventUpdate"
       @delete="handleEventDelete"
     />
+    
+    <!-- 批量添加模态框 -->
+    <BatchAddModal
+      v-if="showBatchAddModal"
+      @close="showBatchAddModal = false"
+      @success="handleBatchAddSuccess"
+    />
   </div>
 </template>
 
@@ -81,6 +103,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import { useCourseStore, useUserStore, useTaskStore, useEntryStore } from '../store'
 import { coursesAPI, tasksAPI, entriesAPI, authAPI } from '../services/api'
 import EventEditModal from './EventEditModal.vue'
+import BatchAddModal from './BatchAddModal.vue'
 import axios from 'axios'
 
 const calendarRef = ref(null)
@@ -93,12 +116,42 @@ const entryStore = useEntryStore()
 const showEditModal = ref(false)
 const editingEvent = ref(null)
 
+// 批量添加模态框状态
+const showBatchAddModal = ref(false)
+
+// 处理批量添加成功事件
+const handleBatchAddSuccess = async () => {
+  try {
+    // 使用当前视图的中心日期
+    const formattedDate = currentViewDate.value.toISOString().split('T')[0]
+    // 调用API获取所有条目，刷新前端
+    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+    const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
+    // 更新entryStore.entries数组
+    entryStore.setEntries(refreshedEntries)
+    // 更新日历事件
+    updateCalendarEvents(refreshedEntries)
+    console.log('已刷新日历，批量创建的日常任务已更新')
+  } catch (error) {
+    console.error('刷新日历失败:', error)
+  }
+}
+
 // 加载状态
 const loadingStatus = ref('')
 const isLoading = ref(false)
 
-// 取消令牌，用于取消正在进行的请求
-let cancelTokenSource = null
+// 监听isLoading状态变化，动态更新日历的可编辑和可选择状态
+watch(isLoading, (newValue) => {
+  if (calendarRef.value) {
+    const calendarApi = calendarRef.value.getApi()
+    calendarApi.setOption('editable', !newValue)
+    calendarApi.setOption('selectable', !newValue)
+  }
+})
+
+// 取消控制器，用于取消正在进行的请求
+let abortController = null
 
 // 事件类型到默认颜色的映射（使用与BUAA_API同步的颜色）
 const typeToColor = {
@@ -159,17 +212,97 @@ const emptyDaysAfter = computed(() => {
 // 切换快速跳转日历显示
 const toggleQuickJump = () => {
   showQuickJump.value = !showQuickJump.value
+  if (showQuickJump.value) {
+    fetchMonthEntries()
+  }
 }
 
 // 切换月份
 const changeMonth = (delta) => {
   currentDate.value = new Date(currentYear.value, currentMonth.value + delta, 1)
+  fetchMonthEntries()
 }
 
 // 检查是否为今天
 const isToday = (day) => {
   const today = new Date()
   return today.getDate() === day && today.getMonth() === currentMonth.value && today.getFullYear() === currentYear.value
+}
+
+// 月视图日程数据，用于显示指示器
+const monthEntries = ref({})
+
+// 获取当月所有日期的日程信息
+const fetchMonthEntries = async () => {
+  try {
+    const year = currentYear.value
+    const month = currentMonth.value
+    
+    // 计算当月第一天和最后一天
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    
+    // 格式化日期
+    const startDate = firstDay.toISOString().split('T')[0]
+    const endDate = lastDay.toISOString().split('T')[0]
+    
+    // 获取当月所有日程
+    const response = await entriesAPI.getEntriesByDateRange(startDate, endDate)
+    const entries = Array.isArray(response) ? response : (response.entries || [])
+    
+    // 按日期分组并计算重要性
+    const entriesByDate = {}
+    entries.forEach(entry => {
+      const date = entry.start_time.split('T')[0]
+      if (!entriesByDate[date]) {
+        entriesByDate[date] = []
+      }
+      entriesByDate[date].push(entry)
+    })
+    
+    monthEntries.value = entriesByDate
+  } catch (error) {
+    console.error('获取当月日程失败:', error)
+    monthEntries.value = {}
+  }
+}
+
+// 计算日期的日程重要性等级（0-无日程，1-低，2-中，3-高）
+const calculateImportanceLevel = (date) => {
+  const dateStr = new Date(currentYear.value, currentMonth.value, date).toISOString().split('T')[0]
+  const entries = monthEntries.value[dateStr] || []
+  
+  if (entries.length === 0) return 0
+  
+  // 根据日程类型和数量计算重要性
+  let importance = 1
+  
+  entries.forEach(entry => {
+    if (entry.entry_type === 'exam' || entry.entry_type === 'exam_prep') {
+      importance = Math.max(importance, 3)
+    } else if (entry.entry_type === 'individual_homework' || entry.entry_type === 'group_report' || entry.entry_type === 'work_delivery') {
+      importance = Math.max(importance, 2)
+    } else if (entry.entry_type === 'course' || entry.entry_type === 'meeting') {
+      importance = Math.max(importance, 1)
+    }
+  })
+  
+  // 如果同一天有多个日程，提升重要性
+  if (entries.length >= 3) {
+    importance = Math.min(importance + 1, 3)
+  }
+  
+  return importance
+}
+
+// 获取日程指示器颜色
+const getIndicatorColor = (importanceLevel) => {
+  switch (importanceLevel) {
+    case 1: return '#4CAF50' // 绿色 - 低重要性
+    case 2: return '#FFC107' // 黄色 - 中重要性
+    case 3: return '#F44336' // 红色 - 高重要性
+    default: return 'transparent' // 无日程
+  }
 }
 
 // 选择日期并跳转
@@ -196,6 +329,19 @@ document.addEventListener('click', (e) => {
     showQuickJump.value = false
   }
 })
+
+// 防抖函数，用于限制函数调用频率
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
 
 // 销毁临时事件的函数
 const destroyTempEvent = () => {
@@ -266,8 +412,8 @@ const calendarOptions = {
       center: 'title',
       right: ''
     },
-    editable: true, // 全局设置为可编辑，使用eventAllow回调函数控制具体事件是否可拖动
-    selectable: true,
+    editable: !isLoading.value, // 全局设置为可编辑，使用eventAllow回调函数控制具体事件是否可拖动
+    selectable: !isLoading.value,
     selectMirror: true,
     dayMaxEvents: true,
     events: [],
@@ -277,7 +423,7 @@ const calendarOptions = {
     
     // 自定义按钮文本
     buttonText: {
-      today: '跳转到今天',
+      today: '回到今天',
       month: '月',
       week: '周',
       list: '列表'
@@ -292,6 +438,8 @@ const calendarOptions = {
       minute: '2-digit',
       hour12: false
     },
+    
+
     
     // 自定义时间视图
     views: {
@@ -343,7 +491,7 @@ const calendarOptions = {
     },
     
     // 日期渲染事件，用于自定义表头样式和日期导航
-    datesSet: (info) => {
+    datesSet: debounce((info) => {
       console.log('日期范围已设置:', info)
       // 确保始终显示7天
       if (info.view.type === 'timeGridWeek') {
@@ -376,7 +524,7 @@ const calendarOptions = {
           }
         })
       }, 100)
-    },
+    }, 300),
     
     // 选择日期范围事件
     select: (selectInfo) => {
@@ -641,11 +789,24 @@ const adjustInitialDate = () => {
   return now
 }
 
+// 课程同步频率限制：每30秒只同步一次
+let lastSyncTime = 0;
+const SYNC_INTERVAL = 30 * 1000; // 30秒
+
 // 从API获取数据并更新日历
 const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
   // 设置加载状态
   isLoading.value = true
   loadingStatus.value = '正在获取日历数据...'
+  
+  // 取消之前正在进行的请求
+  if (abortController) {
+    abortController.abort()
+    console.log('已取消之前的北航API请求')
+  }
+  
+  // 创建新的AbortController
+  abortController = new AbortController()
   
   try {
     // 保存当前视图日期
@@ -665,28 +826,37 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
     updateCalendarEvents(entries)
     
     // 2. 同步北航课程表（复用SettingsPanel.vue的实现，使用新的按日期同步API）
-    try {
-      loadingStatus.value = '正在同步课程表...'
-      
-      // 获取北航学号
-      const buaaIdResponse = await authAPI.getBuaaId()
-      if (buaaIdResponse.buaa_id) {
-        // 调用新的按日期同步课程表API
-        await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
-          buaa_id: buaaIdResponse.buaa_id,
-          password: '' // 密码由后端存储，前端不需要传递
-        })
+    // 添加频率限制：每5分钟只同步一次
+    const now = Date.now();
+    if (now - lastSyncTime >= SYNC_INTERVAL) {
+      try {
+        loadingStatus.value = '正在同步课程表...'
         
-        // 3. 同步成功后，再次获取entries刷新前端
-        loadingStatus.value = '课程表同步成功，正在刷新日历...'
-        const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
-        const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
-        entryStore.setEntries(refreshedEntries)
-        updateCalendarEvents(refreshedEntries)
+        // 获取北航学号
+        const buaaIdResponse = await authAPI.getBuaaId()
+        if (buaaIdResponse.buaa_id) {
+          // 调用新的按日期同步课程表API，并传递abort signal
+            await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
+              buaa_id: buaaIdResponse.buaa_id,
+              password: '' // 密码由后端存储，前端不需要传递
+            }, abortController.signal)
+          
+          // 同步成功后更新最后同步时间
+          lastSyncTime = now;
+          
+          // 3. 同步成功后，再次获取entries刷新前端
+          loadingStatus.value = '课程表同步成功，正在刷新日历...'
+          const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+          const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
+          entryStore.setEntries(refreshedEntries)
+          updateCalendarEvents(refreshedEntries)
+        }
+      } catch (syncError) {
+        console.error('同步课程表失败:', syncError)
+        // 同步失败不影响日历显示，继续执行
       }
-    } catch (syncError) {
-      console.error('同步课程表失败:', syncError)
-      // 同步失败不影响日历显示，继续执行
+    } else {
+      console.log('课程表同步频率限制：跳过本次同步，距离上次同步仅' + Math.round((now - lastSyncTime) / 1000) + '秒')
     }
   } catch (error) {
     console.error('加载条目失败:', error)
@@ -700,6 +870,8 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
     // 关闭加载状态
     isLoading.value = false
     loadingStatus.value = ''
+    // 清理abortController
+    abortController = null
   }
 }
 
@@ -1276,18 +1448,19 @@ watch(() => entryStore.entries, (newEntries) => {
   overflow: hidden;
   position: relative;
   display: block;
+  overflow-y: hidden;
 }
 
 /* 快速跳转功能样式 - 增强可见性 */
 .quick-jump-container {
   position: absolute;
-  top: 10px;
+  top: -20px;
   right: 10px;
   z-index: 1000;
   background-color: rgba(255, 255, 255, 0.95);
   padding: 0.75rem;
   border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .quick-jump-btn {
@@ -1301,6 +1474,32 @@ watch(() => entryStore.entries, (newEntries) => {
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   font-weight: 500;
+}
+
+.function-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.batch-add-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
+.batch-add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+  background-color: var(--primary-dark);
 }
 
 .quick-jump-btn:hover {
@@ -1391,6 +1590,7 @@ watch(() => entryStore.entries, (newEntries) => {
   width: 100%;
   aspect-ratio: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
@@ -1400,6 +1600,15 @@ watch(() => entryStore.entries, (newEntries) => {
   border: 1px solid transparent;
   color: var(--text-primary);
   background-color: rgba(255, 255, 255, 0.8);
+  padding: 2px;
+}
+
+.schedule-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 2px;
+  transition: background-color 0.2s ease;
 }
 
 .day:hover {
@@ -1487,7 +1696,7 @@ watch(() => entryStore.entries, (newEntries) => {
 :deep(.fc-scroller) {
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  max-height: calc(100vh - 300px) !important;
+  max-height: calc(100vh - 250px) !important;
   position: relative;
   scrollbar-width: thin;
   scrollbar-color: var(--primary-color) transparent;

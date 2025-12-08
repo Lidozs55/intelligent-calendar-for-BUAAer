@@ -162,4 +162,50 @@ def get_entries_by_date_range(date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@entries_bp.route('/range', methods=['GET'])
+def get_entries_by_custom_date_range():
+    """根据自定义日期范围获取条目
+    
+    Query Params:
+        start_date: 开始日期，格式为 yyyy-mm-dd
+        end_date: 结束日期，格式为 yyyy-mm-dd
+        
+    Returns:
+        JSON格式的条目列表，包含指定日期范围内的所有条目
+    """
+    try:
+        # 获取查询参数
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        # 验证参数
+        if not start_date_str or not end_date_str:
+            return jsonify({'error': '缺少必要参数: start_date 和 end_date'}), 400
+        
+        # 解析日期参数
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': '日期格式错误，应为 yyyy-mm-dd'}), 400
+        
+        # 构建查询条件
+        start_datetime = datetime.combine(start_date, datetime.min.time())
+        end_datetime = datetime.combine(end_date, datetime.max.time())
+        
+        # 查询指定日期范围内的所有条目
+        entries = Entry.query.filter(
+            Entry.start_time >= start_datetime,
+            Entry.start_time <= end_datetime
+        ).all()
+        
+        result = {
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'entries': [entry.to_dict() for entry in entries]
+        }
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 

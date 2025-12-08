@@ -61,7 +61,7 @@ export const coursesAPI = {
   // 同步北航课程表（使用当前日期）
   syncBuaaCourses: (data) => api.post('/courses/sync_buaa', data),
   // 按指定日期同步北航课程表
-  syncBuaaCoursesByDate: (date, data) => api.post(`/courses/sync_buaa/${date}`, data),
+  syncBuaaCoursesByDate: (date, data, signal) => api.post(`/courses/sync_buaa/${date}`, data, { signal }),
   // 验证北航登录凭证
   verifyBuaaCredentials: (data) => api.post('/courses/verify_buaa_credentials', data)
 }
@@ -70,8 +70,10 @@ export const coursesAPI = {
 export const entriesAPI = {
   // 获取所有条目
   getEntries: () => api.get('/entries'),
-  // 按日期范围获取条目
+  // 按日期获取条目
   getEntriesByDate: (date) => api.get(`/entries/${date}`),
+  // 按日期范围获取条目
+  getEntriesByDateRange: (startDate, endDate) => api.get('/entries/range', { params: { start_date: startDate, end_date: endDate } }),
   // 添加新条目
   addEntry: (data) => api.post('/entries', data),
   // 更新条目
