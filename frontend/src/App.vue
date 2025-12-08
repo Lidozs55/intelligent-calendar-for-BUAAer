@@ -3,7 +3,12 @@
     <!-- 根据当前页面显示不同内容 -->
     <template v-if="currentPage === 'home'">
       <header class="app-header">
-        <h1>智能日程助手 - 北航版</h1>
+        <div class="header-left">
+          <h1>智能日程助手 - 北航版</h1>
+          <div class="current-date-display">
+            <span class="current-date">{{ new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }) }}</span>
+          </div>
+        </div>
         <div class="header-actions">
           <!-- 用户头像 -->
           <div class="user-avatar-container" @click="toggleSettings">
@@ -517,10 +522,22 @@ p, span, div, button {
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 500;
+}
+
+.current-date-display {
+  font-size: 1rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .header-actions {

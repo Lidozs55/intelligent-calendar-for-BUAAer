@@ -832,13 +832,14 @@ const emit = defineEmits(['add-task', 'start-focus'])
   margin-bottom: 1rem;
   box-shadow: 0 2px 8px var(--shadow-color);
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
 }
 
 /* 圆形进度条样式 */
 .progress-circle-container {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
 }
 
 .progress-circle {
@@ -872,13 +873,16 @@ const emit = defineEmits(['add-task', 'start-focus'])
 /* 进度统计信息 */
 .progress-stats {
   display: flex;
-  justify-content: space-around;
-  width: 100%;
-  gap: 1rem;
+  flex-direction: row;
+  gap: 1.5rem;
+  align-items: center;
 }
 
 .stat-item {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .stat-label {
@@ -898,7 +902,7 @@ const emit = defineEmits(['add-task', 'start-focus'])
 /* 悬浮添加任务按钮 */
 .floating-add-btn {
   position: fixed;
-  bottom: 20px;
+  bottom: -22px; /* 大致40%隐藏（56px * 40% ≈ 22px） */
   left: 20px;
   width: 56px;
   height: 56px;
@@ -910,21 +914,22 @@ const emit = defineEmits(['add-task', 'start-focus'])
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
+  transform: translate(0, 0);
 }
 
 .floating-add-btn:hover {
   background-color: var(--primary-dark);
-  transform: scale(1.1) translateY(-2px);
+  transform: translate(0, -22px) scale(1.1);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
 }
 
 .floating-add-btn:active {
-  transform: scale(0.95);
+  transform: translate(0, -22px) scale(0.95);
 }
 
 /* 即将到期任务样式 */

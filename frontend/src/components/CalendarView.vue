@@ -1,69 +1,45 @@
 <template>
   <div class="calendar-container">
-    <!-- 顶部日期展示 -->
-    <div class="top-date-display">
-      <span class="current-date">{{ new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }) }}</span>
-    </div>
+    <!-- 顶部日期展示已移至App.vue的header中 -->
     
-    <!-- 功能按钮区 -->
-    <div class="function-buttons">
-      <!-- 快速跳转功能 -->
-      <div class="quick-jump-container">
-        <button 
-          class="quick-jump-btn"
-          @click="toggleQuickJump"
-        >
-          快速跳转
-        </button>
+    <!-- 快速跳转小日历 -->
+    <div v-if="showQuickJump" class="quick-jump-calendar">
+      <div class="calendar-header">
+        <button @click="changeMonth(-1)" class="month-nav-btn">&lt;</button>
+        <span class="current-month">{{ currentYear }}年{{ currentMonth + 1 }}月</span>
+        <button @click="changeMonth(1)" class="month-nav-btn">&gt;</button>
       </div>
-      
-      <!-- 批量添加按钮 -->
-      <button
-        class="batch-add-btn"
-        @click="showBatchAddModal = true"
-      >
-        + 创建日常任务
-      </button>
+      <div class="calendar-grid">
+        <div class="weekdays">
+          <div class="weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
+        </div>
+        <div class="days">
+          <div 
+            class="day empty" 
+            v-for="emptyDay in emptyDaysBefore" 
+            :key="'empty-' + emptyDay"
+          ></div>
+          <div 
+            class="day" 
+            v-for="day in daysInMonth" 
+            :key="day"
+            :class="{ 'today': isToday(day), 'selected': selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentMonth && selectedDate.getFullYear() === currentYear }"
+            @click="selectDateAndJump(day)"
+          >
+            {{ day }}
+            <div 
+              class="schedule-indicator" 
+              :style="{ backgroundColor: getIndicatorColor(calculateImportanceLevel(day)) }"
+            ></div>
+          </div>
+          <div 
+            class="day empty" 
+            v-for="emptyDay in emptyDaysAfter" 
+            :key="'empty-after-' + emptyDay"
+          ></div>
+        </div>
+      </div>
     </div>
-      
-      <!-- 快速跳转小日历 -->
-      <div v-if="showQuickJump" class="quick-jump-calendar">
-        <div class="calendar-header">
-          <button @click="changeMonth(-1)" class="month-nav-btn">&lt;</button>
-          <span class="current-month">{{ currentYear }}年{{ currentMonth + 1 }}月</span>
-          <button @click="changeMonth(1)" class="month-nav-btn">&gt;</button>
-        </div>
-        <div class="calendar-grid">
-          <div class="weekdays">
-            <div class="weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
-          </div>
-          <div class="days">
-            <div 
-              class="day empty" 
-              v-for="emptyDay in emptyDaysBefore" 
-              :key="'empty-' + emptyDay"
-            ></div>
-            <div 
-              class="day" 
-              v-for="day in daysInMonth" 
-              :key="day"
-              :class="{ 'today': isToday(day), 'selected': selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentMonth && selectedDate.getFullYear() === currentYear }"
-              @click="selectDateAndJump(day)"
-            >
-              {{ day }}
-              <div 
-                class="schedule-indicator" 
-                :style="{ backgroundColor: getIndicatorColor(calculateImportanceLevel(day)) }"
-              ></div>
-            </div>
-            <div 
-              class="day empty" 
-              v-for="emptyDay in emptyDaysAfter" 
-              :key="'empty-after-' + emptyDay"
-            ></div>
-          </div>
-        </div>
-      </div>
     
     <!-- 加载状态提示 - 角落小提示 -->
     <div v-if="isLoading" class="loading-corner">
@@ -324,8 +300,9 @@ const selectDateAndJump = (day) => {
 
 // 点击外部关闭快速跳转日历
 document.addEventListener('click', (e) => {
-  const quickJumpContainer = document.querySelector('.quick-jump-container')
-  if (quickJumpContainer && !quickJumpContainer.contains(e.target)) {
+  const quickJumpCalendar = document.querySelector('.quick-jump-calendar')
+  const quickJumpBtn = document.querySelector('.fc-quickJump-button')
+  if (showQuickJump.value && quickJumpCalendar && !quickJumpCalendar.contains(e.target) && quickJumpBtn && !quickJumpBtn.contains(e.target)) {
     showQuickJump.value = false
   }
 })
@@ -408,9 +385,9 @@ const calendarOptions = {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     initialView: 'timeGridWeek',
     headerToolbar: {
-      left: 'prev,next today',
+      left: 'prev,next today quickJump',
       center: 'title',
-      right: ''
+      right: 'batchAdd'
     },
     editable: !isLoading.value, // 全局设置为可编辑，使用eventAllow回调函数控制具体事件是否可拖动
     selectable: !isLoading.value,
@@ -427,6 +404,41 @@ const calendarOptions = {
       month: '月',
       week: '周',
       list: '列表'
+    },
+    
+    // 自定义按钮
+    customButtons: {
+      quickJump: {
+        text: '快速跳转',
+        click: toggleQuickJump
+      },
+      batchAdd: {
+        text: '+ 创建日常任务',
+        click: () => { showBatchAddModal.value = true }
+      },
+      today: {
+        text: '回到今天',
+        click: function() {
+          const calendar = this;
+          const now = new Date();
+          const currentHour = now.getHours();
+          
+          // 如果当前时间不到4:00，跳转到前一天
+          if (currentHour < 4) {
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            calendar.gotoDate(yesterday);
+          } else {
+            // 强制跳转到今天，确保显示的是今天开始的7天视图
+            const today = new Date();
+            calendar.gotoDate(today);
+            
+            // 强制重新加载数据，确保日期范围正确
+            const centerDate = today;
+            fetchDataAndUpdateCalendar(centerDate);
+          }
+        }
+      }
     },
     
     // 隐藏all-day项目
@@ -459,7 +471,29 @@ const calendarOptions = {
           weekday: 'short',
           month: 'numeric',
           day: 'numeric'
+        },
+        // 自定义标题格式
+        titleFormat: {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
         }
+      }
+    },
+    
+    // 自定义日期范围计算逻辑，确保标题显示正确的日期范围
+    datesDidUpdate: (info) => {
+      if (info.view.type === 'timeGridWeek') {
+        // 获取开始和结束日期
+        const startDate = new Date(info.start)
+        const endDate = new Date(info.end)
+        
+        // 减去一天，因为FullCalendar的end日期是下一周的开始
+        endDate.setDate(endDate.getDate() - 1)
+        
+        // 更新视图的内部日期范围
+        info.view.currentStart = startDate
+        info.view.currentEnd = endDate
       }
     },
     
@@ -468,7 +502,8 @@ const calendarOptions = {
       // 拖动黑名单：这些类型的事件不允许拖动
       const dragBlacklist = ['course', 'lecture', 'exam'] // 不允许拖动的事件类型
       const eventType = draggedEvent.extendedProps.type || ''
-      return !dragBlacklist.includes(eventType)
+      // 检查是否是临时日程或在黑名单中
+      return !(dragBlacklist.includes(eventType) || draggedEvent.extendedProps.isTemp)
     },
     
     // 允许选择任意时长的时间段
@@ -501,6 +536,8 @@ const calendarOptions = {
       // 当日期范围变化时，获取当前视图的中心日期并重新加载数据
       const centerDate = info.view.currentStart
       fetchDataAndUpdateCalendar(centerDate)
+      
+      // 移除动态标题修改，使用FullCalendar的titleFormat选项直接控制标题格式
       
       // 仅为周末添加浅蓝背景（节假日功能暂时禁用）
       setTimeout(() => {
@@ -737,7 +774,7 @@ eventClick: (clickInfo) => {
       }
     },
     
-    // 修复today按钮逻辑，使用dateClick事件来处理
+    // 日期点击事件处理
     dateClick: function(info) {
       console.log('点击了日期:', info)
       
@@ -1447,74 +1484,192 @@ watch(() => entryStore.entries, (newEntries) => {
   min-height: 500px;
   overflow: hidden;
   position: relative;
-  display: block;
-  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 移除FullCalendar下方的异常白边 - 重置所有边距和内边距 */
+.fc {
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 确保FullCalendar内容填满容器 */
+.fc .fc-view {
+  height: 100% !important;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 确保滚动条应用于整个日程表 - 最高优先级 */
+:root .fc-scroller {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* 确保日历内容区域填满容器 */
+.fc-timegrid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100% !important;
+}
+
+.fc-timegrid .fc-timegrid-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100% !important;
+}
+
+/* 移除时间网格中的多余边距 */
+.fc-timegrid-main {
+  flex: 1;
+  overflow: hidden;
+  height: 100% !important;
+}
+
+/* 确保日历表格填满容器 */
+.fc-timegrid-table {
+  height: 100% !important;
+  table-layout: fixed;
+}
+
+/* 确保fc-scroller填满其父容器 */
+.fc-timegrid-body .fc-scroller {
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+/* 确保没有多余的滚动区域 */
+.fc .fc-daygrid-body, 
+.fc .fc-timegrid-body {
+  overflow: hidden !important;
+}
+
+/* FullCalendar 标题栏样式调整 */
+.fc-header-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* 统一所有 FullCalendar 按钮样式 - 使用更高优先级 */
+:root .fc-button {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-size: 0.85rem !important; /* 同步缩小字体 */
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  height: auto !important;
+  min-height: 36px !important;
+  text-transform: none !important; /* 禁用默认的大写转换 */
+}
+
+/* 确保回到今天按钮不使用浅色主题 - 更高优先级 */
+:root .fc-today-button {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+}
+
+:root .fc-today-button.fc-button-active {
+  background-color: var(--primary-dark) !important;
+  color: white !important;
+}
+
+/* 自定义按钮样式 - 更高优先级 */
+:root .fc-quickJump-button,
+:root .fc-batchAdd-button {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-size: 0.85rem !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  height: auto !important;
+  min-height: 36px !important;
+  text-transform: none !important; /* 禁用默认的大写转换 */
+}
+
+:root .fc-button:hover {
+  background-color: var(--primary-dark) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3) !important;
+}
+
+:root .fc-button:active {
+  transform: translateY(-1px) scale(0.95) !important;
+}
+
+/* FullCalendar 标题样式 */
+.fc-toolbar-title {
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  text-align: center !important;
+  flex: 1 !important;
+  margin: 0 1rem !important;
+}
+
+/* 调小日程块的日程标题字体 - 使用更高优先级 */
+:root .fc-event .fc-event-title {
+  font-size: 0.85rem !important;
+  line-height: 1.3 !important;
+}
+
+/* 直接作用于时间网格视图中的事件标题 - 更高优先级 */
+:root .fc-timegrid-event .fc-event-title {
+  font-size: 0.85rem !important;
+}
+
+/* 直接作用于日视图中的事件标题 - 更高优先级 */
+:root .fc-daygrid-event .fc-event-title {
+  font-size: 0.85rem !important;
+}
+
+/* 确保只调整标题，不调整时间 - 更高优先级 */
+:root .fc-event-time {
+  font-size: inherit !important;
+}
+
+/* 确保FullCalendar事件标题使用正确的字体大小 - 最高优先级 */
+:root .fc-event-title {
+  font-size: 0.85rem !important;
 }
 
 /* 快速跳转功能样式 - 增强可见性 */
-.quick-jump-container {
-  position: absolute;
-  top: -20px;
-  right: 10px;
-  z-index: 1000;
-  background-color: rgba(255, 255, 255, 0.95);
-  padding: 0.75rem;
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.quick-jump-btn {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  font-weight: 500;
-}
-
-.function-buttons {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.batch-add-btn {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  font-weight: 500;
-}
-
-.batch-add-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
-  background-color: var(--primary-dark);
-}
-
-.quick-jump-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
-}
-
-.quick-jump-btn:hover {
-  background-color: var(--primary-dark);
-}
-
 .quick-jump-calendar {
   position: absolute;
-  top: 100%;
-  right: 0;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
   margin-top: 5px;
   background-color: white;
   border: 1px solid #e0e0e0;
