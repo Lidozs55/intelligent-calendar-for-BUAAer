@@ -509,7 +509,7 @@ p, span, div, button {
 .app-header {
   background-color: var(--bg-header);
   color: white;
-  padding: 0.4rem 1.5rem;
+  padding: 0.25rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -523,6 +523,12 @@ p, span, div, button {
   font-weight: 500;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .header-actions button {
   background-color: rgba(255, 255, 255, 0.2);
   border: none;
@@ -532,7 +538,6 @@ p, span, div, button {
   cursor: pointer;
   font-size: 1rem;
   transition: background-color 0.3s ease, transform 0.2s ease;
-  margin-left: 0.5rem;
 }
 
 /* 用户头像样式 */
@@ -605,13 +610,9 @@ p, span, div, button {
   font-size: 0.9rem;
   cursor: pointer;
   transition: background-color 0.3s ease, transform 0.2s ease;
-  margin-left: 0.4rem;
 }
 
-/* 第一个按钮特殊处理 - 取消左侧margin */
-.header-actions button:first-child {
-  margin-left: 0 !important;
-}
+/* 不再需要特殊处理第一个按钮，间距由header-actions的gap属性控制 */
 
 .btn-icon {
   font-size: 1rem;
