@@ -5,22 +5,31 @@ from PIL import Image
 import io
 import os
 
-# 初始化easyocr阅读器（只需要初始化一次）
-import sys
-# 检查是否运行在PyInstaller打包的exe环境中
-if hasattr(sys, '_MEIPASS'):
-    # 打包为exe时，使用本地model目录下的模型
-    model_path = os.path.join(sys._MEIPASS, 'model')
-    reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, model_storage_directory=model_path)
-else:
-    # 开发环境下，使用默认的用户目录下的模型
-    reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
-
 # 创建蓝图
 llm_bp = Blueprint('llm', __name__)
 
 # 初始化LLM解析器
 llm_parser = LLMParser()
+
+# 延迟初始化easyocr阅读器（只在需要时初始化）
+reader = None
+
+def get_easyocr_reader():
+    """获取easyocr阅读器实例，延迟初始化"""
+    global reader
+    if reader is None:
+        import sys
+        print("正在初始化OCR模型...")
+        # 检查是否运行在PyInstaller打包的exe环境中
+        if hasattr(sys, '_MEIPASS'):
+            # 打包为exe时，使用本地model目录下的模型
+            model_path = os.path.join(sys._MEIPASS, 'model')
+            reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, model_storage_directory=model_path)
+        else:
+            # 开发环境下，使用默认的用户目录下的模型
+            reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+        print("OCR模型初始化完成")
+    return reader
 
 
 @llm_bp.route('/parse/text', methods=['POST'])
@@ -173,7 +182,7 @@ def parse_image():
                     temp_file_path = temp_file.name
                 
                 # 使用easyocr进行识别
-                results = reader.readtext(temp_file_path, detail=0)
+                results = get_easyocr_reader().readtext(temp_file_path, detail=0)
                 print(f"OCR识别结果: {results}")
                 
                 # 合并识别结果
