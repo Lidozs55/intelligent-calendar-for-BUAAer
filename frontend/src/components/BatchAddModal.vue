@@ -146,15 +146,21 @@ const handleBatchAdd = async () => {
     
     // 批量创建日常任务
     const promises = datesToAdd.map(date => {
-      const startDateTime = new Date(`${date.toISOString().split('T')[0]}T${formData.startTime}:00`)
-      const endDateTime = new Date(`${date.toISOString().split('T')[0]}T${formData.endTime}:00`)
+      // 构建本地时间格式的datetime字符串，避免时区转换问题
+      // 格式：YYYY-MM-DDTHH:mm:ss
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      
+      const startDateTimeStr = `${year}-${month}-${day}T${formData.startTime}:00`
+      const endDateTimeStr = `${year}-${month}-${day}T${formData.endTime}:00`
       
       return entriesAPI.addEntry({
         title: formData.title,
         description: formData.description,
         entry_type: formData.entryType,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime.toISOString()
+        start_time: startDateTimeStr,
+        end_time: endDateTimeStr
       })
     })
     

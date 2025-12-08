@@ -274,7 +274,7 @@ def sync_buaa_courses_by_date(date=None):
         if date:
             # 使用传入的日期作为起始日期
             try:
-                today = datetime.strptime(date, '%Y-%m-%d')+timedelta(days=8)
+                today = datetime.strptime(date, '%Y-%m-%d')+deltatime(days=1)
             except ValueError:
                 return jsonify({"status": "error", "message": "日期格式错误，应为YYYY-MM-DD"}), 400
         else:

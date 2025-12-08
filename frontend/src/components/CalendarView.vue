@@ -100,8 +100,12 @@ const handleBatchAddSuccess = async () => {
   try {
     // 使用当前视图的中心日期
     const formattedDate = currentViewDate.value.toISOString().split('T')[0]
+    
+    // 创建新的AbortController用于此请求
+    const batchAddAbortController = new AbortController()
+    
     // 调用API获取所有条目，刷新前端
-    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate, batchAddAbortController.signal)
     const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
     // 更新entryStore.entries数组
     entryStore.setEntries(refreshedEntries)
@@ -109,6 +113,10 @@ const handleBatchAddSuccess = async () => {
     updateCalendarEvents(refreshedEntries)
     console.log('已刷新日历，批量创建的日常任务已更新')
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('批量添加成功后刷新日历请求已取消')
+      return
+    }
     console.error('刷新日历失败:', error)
   }
 }
@@ -222,8 +230,11 @@ const fetchMonthEntries = async () => {
     const startDate = firstDay.toISOString().split('T')[0]
     const endDate = lastDay.toISOString().split('T')[0]
     
+    // 创建新的AbortController用于此请求
+    const monthAbortController = new AbortController()
+    
     // 获取当月所有日程
-    const response = await entriesAPI.getEntriesByDateRange(startDate, endDate)
+    const response = await entriesAPI.getEntriesByDateRange(startDate, endDate, monthAbortController.signal)
     const entries = Array.isArray(response) ? response : (response.entries || [])
     
     // 按日期分组并计算重要性
@@ -238,6 +249,10 @@ const fetchMonthEntries = async () => {
     
     monthEntries.value = entriesByDate
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('获取当月日程请求已取消')
+      return
+    }
     console.error('获取当月日程失败:', error)
     monthEntries.value = {}
   }
@@ -533,8 +548,9 @@ const calendarOptions = {
         info.view.calendar.setOption('duration', { days: 7 })
       }
       
-      // 当日期范围变化时，获取当前视图的中心日期并重新加载数据
-      const centerDate = info.view.currentStart
+      // 当日期范围变化时，获取当前视图的实际开始日期并重新加载数据
+      // 使用info.start而不是info.view.currentStart，因为后者可能被错误修改
+      const centerDate = info.start
       fetchDataAndUpdateCalendar(centerDate)
       
       // 移除动态标题修改，使用FullCalendar的titleFormat选项直接控制标题格式
@@ -850,10 +866,6 @@ const adjustInitialDate = () => {
   return now
 }
 
-// 课程同步频率限制：每30秒只同步一次
-let lastSyncTime = 0;
-const SYNC_INTERVAL = 30 * 1000; // 30秒
-
 // 从API获取数据并更新日历
 const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
   // 设置加载状态
@@ -863,21 +875,28 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
   // 取消之前正在进行的请求
   if (abortController) {
     abortController.abort()
-    console.log('已取消之前的北航API请求')
+    console.log('已取消之前的请求')
   }
   
   // 创建新的AbortController
   abortController = new AbortController()
   
   try {
+    // 确保date是一个有效的JavaScript Date对象
+    let validDate = date
+    if (!(validDate instanceof Date)) {
+      // 如果是FullCalendar的日期对象，将其转换为JavaScript Date对象
+      validDate = new Date(validDate)
+    }
+    
     // 保存当前视图日期
-    currentViewDate.value = date
+    currentViewDate.value = validDate
     
     // 格式化日期为YYYY-MM-DD格式
-    const formattedDate = date.toISOString().split('T')[0]
+    const formattedDate = validDate.toISOString().split('T')[0]
     
     // 1. 获取指定日期范围内的entries
-    const response = await entriesAPI.getEntriesByDate(formattedDate)
+    const response = await entriesAPI.getEntriesByDate(formattedDate, abortController.signal)
     // 处理API返回的数据结构，确保获取到正确的条目数组
     const entries = Array.isArray(response) ? response : (response.entries || [])
     // 更新entryStore.entries数组
@@ -886,40 +905,39 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
     // 更新日历事件
     updateCalendarEvents(entries)
     
-    // 2. 同步北航课程表（复用SettingsPanel.vue的实现，使用新的按日期同步API）
-    // 添加频率限制：每5分钟只同步一次
-    const now = Date.now();
-    if (now - lastSyncTime >= SYNC_INTERVAL) {
-      try {
-        loadingStatus.value = '正在同步课程表...'
+    // 2. 同步北航课程表（使用新的按日期同步API）
+    try {
+      loadingStatus.value = '正在同步课程表...'
+      
+      // 获取北航学号
+      const buaaIdResponse = await authAPI.getBuaaId(abortController.signal)
+      if (buaaIdResponse.buaa_id) {
+        // 调用新的按日期同步课程表API，并传递abort signal
+          await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
+            buaa_id: buaaIdResponse.buaa_id,
+            password: '' // 密码由后端存储，前端不需要传递
+          }, abortController.signal)
         
-        // 获取北航学号
-        const buaaIdResponse = await authAPI.getBuaaId()
-        if (buaaIdResponse.buaa_id) {
-          // 调用新的按日期同步课程表API，并传递abort signal
-            await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
-              buaa_id: buaaIdResponse.buaa_id,
-              password: '' // 密码由后端存储，前端不需要传递
-            }, abortController.signal)
-          
-          // 同步成功后更新最后同步时间
-          lastSyncTime = now;
-          
-          // 3. 同步成功后，再次获取entries刷新前端
-          loadingStatus.value = '课程表同步成功，正在刷新日历...'
-          const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
-          const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
-          entryStore.setEntries(refreshedEntries)
-          updateCalendarEvents(refreshedEntries)
-        }
-      } catch (syncError) {
-        console.error('同步课程表失败:', syncError)
-        // 同步失败不影响日历显示，继续执行
+        // 3. 同步成功后，再次获取entries刷新前端
+        loadingStatus.value = '课程表同步成功，正在刷新日历...'
+        const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate, abortController.signal)
+        const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
+        entryStore.setEntries(refreshedEntries)
+        updateCalendarEvents(refreshedEntries)
       }
-    } else {
-      console.log('课程表同步频率限制：跳过本次同步，距离上次同步仅' + Math.round((now - lastSyncTime) / 1000) + '秒')
+    } catch (syncError) {
+      if (syncError.name === 'AbortError') {
+        console.log('课程表同步请求已取消')
+        return
+      }
+      console.error('同步课程表失败:', syncError)
+      // 同步失败不影响日历显示，继续执行
     }
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('获取日历数据请求已取消')
+      return
+    }
     console.error('加载条目失败:', error)
     
     // 清空日历事件
@@ -1091,6 +1109,9 @@ const handleEventUpdate = async (eventData) => {
   
   // 直接通过API更新服务器
   try {
+    // 创建新的AbortController用于此请求
+    const updateEventAbortController = new AbortController()
+    
     // 调用API更新条目
     if (eventData.id) {
       // 只处理已经存在的事件，新事件已经在EventEditModal.vue的saveEvent函数中处理过了
@@ -1101,7 +1122,7 @@ const handleEventUpdate = async (eventData) => {
         start_time: eventData.start,
         end_time: eventData.end,
         color: eventData.backgroundColor
-      })
+      }, updateEventAbortController.signal)
       console.log('事件已更新到数据库:', eventData)
     }
     
@@ -1109,7 +1130,7 @@ const handleEventUpdate = async (eventData) => {
     // 使用当前视图的中心日期
     const formattedDate = currentViewDate.value.toISOString().split('T')[0]
     // 调用API获取所有条目，刷新前端
-    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate, updateEventAbortController.signal)
     const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
     // 更新entryStore.entries数组
     entryStore.setEntries(refreshedEntries)
@@ -1117,6 +1138,10 @@ const handleEventUpdate = async (eventData) => {
     updateCalendarEvents(refreshedEntries)
     console.log('已刷新日历，新建日程已显示')
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('更新事件请求已取消')
+      return
+    }
     console.error('保存事件到数据库失败:', error)
     // 移除不必要的alert，只在控制台打印错误信息
   }
@@ -1160,28 +1185,26 @@ const handleEventDelete = async (eventId) => {
   
   // 直接通过API删除服务器上的事件
   try {
-    await entriesAPI.deleteEntry(eventId)
+    // 创建新的AbortController用于此请求
+    const deleteEventAbortController = new AbortController()
+    
+    await entriesAPI.deleteEntry(eventId, deleteEventAbortController.signal)
     console.log('事件已从数据库删除:', eventId)
-  } catch (error) {
-    console.error('删除事件到数据库失败:', error)
-    // 移除不必要的alert，只在控制台打印错误信息
-  }
-  
-  // 从日历视图中移除事件
-  if (calendarRef.value) {
-    const calendarApi = calendarRef.value.getApi()
-    const eventToRemove = calendarApi.getEventById(eventId)
-    if (eventToRemove) {
-      eventToRemove.remove()
+    
+    // 从日历视图中移除事件
+    if (calendarRef.value) {
+      const calendarApi = calendarRef.value.getApi()
+      const eventToRemove = calendarApi.getEventById(eventId)
+      if (eventToRemove) {
+        eventToRemove.remove()
+      }
     }
-  }
-  
-  // 添加GET api/entries的逻辑，确保删除后日历数据准确
-  try {
+    
+    // 添加GET api/entries的逻辑，确保删除后日历数据准确
     // 使用当前视图的中心日期
     const formattedDate = currentViewDate.value.toISOString().split('T')[0]
     // 调用API获取所有条目，刷新前端
-    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate)
+    const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate, deleteEventAbortController.signal)
     const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
     // 更新entryStore.entries数组
     entryStore.setEntries(refreshedEntries)
@@ -1189,7 +1212,12 @@ const handleEventDelete = async (eventId) => {
     updateCalendarEvents(refreshedEntries)
     console.log('已刷新日历，删除的日程已更新')
   } catch (error) {
-    console.error('刷新日历失败:', error)
+    if (error.name === 'AbortError') {
+      console.log('删除事件请求已取消')
+      return
+    }
+    console.error('删除事件或刷新日历失败:', error)
+    // 移除不必要的alert，只在控制台打印错误信息
   }
 }
 

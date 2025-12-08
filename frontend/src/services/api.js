@@ -31,9 +31,9 @@ api.interceptors.response.use(
 // 认证相关API
 export const authAPI = {
   // 设置北航学号
-  setBuaaId: (data) => api.post('/auth/buaa_id', data),
+  setBuaaId: (data, signal) => api.post('/auth/buaa_id', data, { signal }),
   // 获取北航学号
-  getBuaaId: () => api.get('/auth/buaa_id')
+  getBuaaId: (signal) => api.get('/auth/buaa_id', { signal })
 }
 
 // 大语言模型解析API
@@ -69,19 +69,19 @@ export const coursesAPI = {
 // 条目相关API - 用于处理所有类型的条目（课程、会议、学习、运动等）
 export const entriesAPI = {
   // 获取所有条目
-  getEntries: () => api.get('/entries'),
+  getEntries: (signal) => api.get('/entries', { signal }),
   // 按日期获取条目
-  getEntriesByDate: (date) => api.get(`/entries/${date}`),
+  getEntriesByDate: (date, signal) => api.get(`/entries/${date}`, { signal }),
   // 按日期范围获取条目
-  getEntriesByDateRange: (startDate, endDate) => api.get('/entries/range', { params: { start_date: startDate, end_date: endDate } }),
+  getEntriesByDateRange: (startDate, endDate, signal) => api.get('/entries/range', { params: { start_date: startDate, end_date: endDate }, signal }),
   // 添加新条目
-  addEntry: (data) => api.post('/entries', data),
+  addEntry: (data, signal) => api.post('/entries', data, { signal }),
   // 更新条目
-  updateEntry: (id, data) => api.put(`/entries/${id}`, data),
+  updateEntry: (id, data, signal) => api.put(`/entries/${id}`, data, { signal }),
   // 删除条目
-  deleteEntry: (id) => api.delete(`/entries/${id}`),
+  deleteEntry: (id, signal) => api.delete(`/entries/${id}`, { signal }),
   // 获取课程类型的条目
-  getCourseEntries: () => api.get('/entries/courses')
+  getCourseEntries: (signal) => api.get('/entries/courses', { signal })
 }
 
 // 任务相关API
