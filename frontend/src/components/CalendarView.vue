@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="calendar-container">
     <!-- 顶部日期展示已移至App.vue的header中 -->
     
@@ -590,11 +590,7 @@ const calendarOptions = {
         },
         className: 'temp-event', // 添加临时事件类名
         // 添加data属性以便识别
-        display: 'auto',
-        // 使用eventDidMount回调来添加data属性
-        eventDidMount: function(info) {
-          info.el.setAttribute('data-is-temp', 'true');
-        }
+        display: 'auto'
       })
       
       // 清除选择，避免干扰
@@ -802,12 +798,40 @@ eventClick: (clickInfo) => {
           isTemp: true,
           fullTitle: '新建事件' // 存储完整标题，用于编辑时显示
         },
-        className: 'temp-event', // 添加临时事件类名
-        // 使用eventDidMount回调来添加data属性
-        eventDidMount: function(info) {
-          info.el.setAttribute('data-is-temp', 'true');
-        }
+        className: 'temp-event' // 添加临时事件类名
       })
+    },
+    
+    // 事件渲染完成后处理 - 根据持续时间动态调整padding
+    eventDidMount: function(info) {
+      // 获取事件的开始和结束时间
+      const start = info.event.start;
+      const end = info.event.end;
+      
+      // 计算事件持续时间（毫秒）
+      const durationMs = end - start;
+      // 转换为小时
+      const durationHours = durationMs / (1000 * 60 * 60);
+      
+      // 获取事件元素
+      const eventEl = info.el;
+      const contentEl = eventEl.querySelector('.fc-event-main');
+      
+      // 如果是临时事件，添加data属性以便识别
+      if (info.event.extendedProps.isTemp) {
+        eventEl.setAttribute('data-is-temp', 'true');
+      }
+      
+      // 根据持续时间设置不同的padding
+      if (durationHours >= 1.5) {
+        // 如果事件持续时间达到或超过1.5小时，设置固定padding（已减半）
+        eventEl.style.padding = '1.5px 2.5px';
+        contentEl.style.padding = '1px 2px';
+      } else {
+        // 否则，设置百分比padding（增加!important以确保生效）
+        eventEl.style.padding = '2% 4% !important';
+        contentEl.style.padding = '1% 3% !important';
+      }
     }
 }
 
@@ -927,8 +951,8 @@ const getStringDisplayLength = (str) => {
 }
 
 // 截断字符串，超过指定显示长度则添加省略号
-// 最大显示长度：19个单位（9个中文字符或19个英文字符）
-const truncateString = (str, maxDisplayLength = 19) => {
+// 最大显示长度：20个单位（10个中文字符或20个英文字符）
+const truncateString = (str, maxDisplayLength = 20) => {
   if (!str) return ''
   
   const displayLength = getStringDisplayLength(str)
@@ -1475,9 +1499,21 @@ watch(() => entryStore.entries, (newEntries) => {
   // 只更新日历事件，不重新请求API
   updateCalendarEvents(newEntries)
 }, { deep: true })
-</script>
+</script><style scoped>
+/* ==============================================
+   日历组件样式重构
+   ==============================================
+   1. 基础布局
+   2. 日历容器和视图结构
+   3. 滚动条样式
+   4. 工具栏和按钮样式
+   5. 日历视图网格和分隔线
+   6. 事件样式
+   7. 快速跳转日历
+   8. 加载状态
+   ============================================== */
 
-<style scoped>
+/* 1. 基础布局 */
 .calendar-container {
   width: 100%;
   height: 100%;
@@ -1488,78 +1524,90 @@ watch(() => entryStore.entries, (newEntries) => {
   flex-direction: column;
 }
 
-/* 移除FullCalendar下方的异常白边 - 重置所有边距和内边距 */
+/* 2. 日历容器和视图结构 */
 .fc {
-  margin: 0 !important;
-  padding: 0 !important;
+  margin: 0;
+  padding: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* 确保FullCalendar内容填满容器 */
 .fc .fc-view {
-  height: 100% !important;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0 !important;
-  margin: 0 !important;
+  padding: 0;
+  margin: 0;
 }
 
-/* 确保滚动条应用于整个日程表 - 最高优先级 */
-:root .fc-scroller {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  flex: 1;
-  min-height: 0;
-  height: auto !important;
-  max-height: none !important;
-}
-
-/* 确保日历内容区域填满容器 */
 .fc-timegrid {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100% !important;
+  height: 100%;
 }
 
 .fc-timegrid .fc-timegrid-body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100% !important;
+  height: 100%;
 }
 
-/* 移除时间网格中的多余边距 */
 .fc-timegrid-main {
   flex: 1;
   overflow: hidden;
-  height: 100% !important;
+  height: 100%;
 }
 
-/* 确保日历表格填满容器 */
 .fc-timegrid-table {
-  height: 100% !important;
+  height: 100%;
   table-layout: fixed;
 }
 
-/* 确保fc-scroller填满其父容器 */
 .fc-timegrid-body .fc-scroller {
-  flex: 1 !important;
-  min-height: 0 !important;
+  flex: 1;
+  min-height: 0;
 }
 
-/* 确保没有多余的滚动区域 */
-.fc .fc-daygrid-body, 
+.fc .fc-daygrid-body,
 .fc .fc-timegrid-body {
-  overflow: hidden !important;
+  overflow: hidden;
 }
 
-/* FullCalendar 标题栏样式调整 */
+/* 3. 滚动条样式 */
+.fc-scroller {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: calc(100vh - 250px);
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) transparent;
+}
+
+.fc-scroller::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fc-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fc-scroller::-webkit-scrollbar-thumb {
+  background-color: var(--primary-color);
+  border-radius: 3px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* 4. 工具栏和按钮样式 */
 .fc-header-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1570,101 +1618,220 @@ watch(() => entryStore.entries, (newEntries) => {
   gap: 0.5rem;
 }
 
-/* 统一所有 FullCalendar 按钮样式 - 使用更高优先级 */
-:root .fc-button {
+.fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  flex: 1;
+  margin: 0 1rem;
+}
+
+/* 基础按钮样式 - 使用:deep()穿透组件封装，添加!important确保优先级 */
+:deep(.fc-button) {
   background-color: var(--primary-color) !important;
   color: white !important;
   border: none !important;
   padding: 0.5rem 1rem !important;
   border-radius: 4px !important;
   cursor: pointer !important;
-  font-size: 0.85rem !important; /* 同步缩小字体 */
+  font-size: 0.8rem !important;
   transition: all 0.3s ease !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
   font-weight: 500 !important;
   line-height: 1.5 !important;
   height: auto !important;
   min-height: 36px !important;
-  text-transform: none !important; /* 禁用默认的大写转换 */
+  text-transform: none !important;
 }
 
-/* 确保回到今天按钮不使用浅色主题 - 更高优先级 */
-:root .fc-today-button {
-  background-color: var(--primary-color) !important;
-  color: white !important;
-}
-
-:root .fc-today-button.fc-button-active {
-  background-color: var(--primary-dark) !important;
-  color: white !important;
-}
-
-/* 自定义按钮样式 - 更高优先级 */
-:root .fc-quickJump-button,
-:root .fc-batchAdd-button {
-  background-color: var(--primary-color) !important;
-  color: white !important;
-  border: none !important;
-  padding: 0.5rem 1rem !important;
-  border-radius: 4px !important;
-  cursor: pointer !important;
-  font-size: 0.85rem !important;
-  transition: all 0.3s ease !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  font-weight: 500 !important;
-  line-height: 1.5 !important;
-  height: auto !important;
-  min-height: 36px !important;
-  text-transform: none !important; /* 禁用默认的大写转换 */
-}
-
-:root .fc-button:hover {
+:deep(.fc-button:hover) {
   background-color: var(--primary-dark) !important;
   transform: translateY(-1px) !important;
   box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3) !important;
 }
 
-:root .fc-button:active {
+:deep(.fc-button:active) {
   transform: translateY(-1px) scale(0.95) !important;
 }
 
-/* FullCalendar 标题样式 */
-.fc-toolbar-title {
-  font-size: 1.2rem !important;
-  font-weight: 600 !important;
-  color: var(--text-primary) !important;
-  text-align: center !important;
-  flex: 1 !important;
-  margin: 0 1rem !important;
+:deep(.fc-button:focus) {
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2) !important;
+  outline: none !important;
 }
 
-/* 调小日程块的日程标题字体 - 使用更高优先级 */
-:root .fc-event .fc-event-title {
-  font-size: 0.85rem !important;
-  line-height: 1.3 !important;
+/* 自定义按钮样式 - 确保主题色正确应用 */
+:deep(.fc-quickJump-button),
+:deep(.fc-batchAdd-button),
+:deep(.fc-today-button),
+:deep(.fc-prev-button),
+:deep(.fc-next-button) {
+  background-color: var(--primary-color) !important;
+  color: white !important;
 }
 
-/* 直接作用于时间网格视图中的事件标题 - 更高优先级 */
-:root .fc-timegrid-event .fc-event-title {
-  font-size: 0.85rem !important;
+:deep(.fc-today-button.fc-button-active) {
+  background-color: var(--primary-dark) !important;
 }
 
-/* 直接作用于日视图中的事件标题 - 更高优先级 */
-:root .fc-daygrid-event .fc-event-title {
-  font-size: 0.85rem !important;
+/* 5. 日历视图网格和分隔线 */
+/* 时间轴样式 */
+:deep(.fc-timegrid-axis) {
+  border-right: 1px dashed #e0e0e0;
+  z-index: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.75rem;
 }
 
-/* 确保只调整标题，不调整时间 - 更高优先级 */
-:root .fc-event-time {
+/* 日期列样式 */
+:deep(.fc-timegrid-view .fc-timegrid-col) {
+  width: 14.28%;
+}
+
+/* 列标题样式 */
+:deep(.fc-day-header) {
+  color: var(--text-primary);
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px dashed #e0e0e0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 表格分隔线样式 */
+:deep(.fc-timegrid-divider) {
+  border-color: #e0e0e0;
+  border-style: dashed;
+  z-index: 0;
+}
+
+:deep(.fc-timegrid-col-bg .fc-timegrid-slot) {
+  border-color: #e0e0e0;
+  border-style: dashed;
+}
+
+/* 23:00特殊分隔线 */
+:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="23:00:00"]) {
+  border-bottom: 2px solid #000000;
+  position: relative;
+  z-index: 1;
+}
+
+/* 隐藏24点时间槽 */
+:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="24:00:00"]) {
+  display: none;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* 时间槽z-index管理 */
+:deep(.fc-timegrid-slot) {
+  position: relative;
+  z-index: 1;
+}
+
+/* 6. 事件样式 */
+/* 分开处理日程长度和字体大小：
+   - 日程长度（事件高度）使用:root选择器
+   - 字体大小使用:deep()选择器 */
+
+/* ----------------------
+   日程长度（事件高度）设置 - 使用:root选择器
+   ---------------------- */
+/* 确保事件块高度与实际时长正相关 */
+:root .fc-event {
+  /* 确保事件块高度由FullCalendar自动计算，不设置固定高度 */
+  min-height: auto !important;
+  height: auto !important;
+  /* 其他基础样式 */
+  padding: 3px 5px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: none;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 2;
+}
+
+:root .fc-event:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 确保时间网格视图中的事件高度与时长正相关 */
+:root .fc-timegrid-event {
+  /* 移除所有可能影响高度计算的固定高度设置 */
+  height: auto !important;
+  min-height: auto !important;
+  /* 使用FullCalendar的CSS变量控制事件高度，auto表示由时长自动计算 */
+  --fc-timegrid-event-min-height: auto !important;
+  /* 确保事件容器高度正确 */
+  --fc-event-min-height: auto !important;
+}
+
+/* 确保事件容器正确计算高度 */
+:root .fc-timegrid-event-harness {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* 确保事件内容正确显示 */
+:root .fc-timegrid-event-main {
+  padding: 2px 4px;
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* 确保可拖动事件也保持正确的高度 */
+:root .fc-timegrid-event.fc-event-draggable {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* 确保事件内容区域正确计算高度 */
+:root .fc-timegrid-event .fc-event-main-frame {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* 确保事件标题区域正确计算高度 */
+:root .fc-timegrid-event .fc-event-content {
+  height: auto !important;
+  min-height: auto !important;
+  padding: 0;
+  margin: 0;
+}
+
+/* 确保事件内容高度正确 */
+:root .fc-event-main {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* ----------------------
+   字体大小设置 - 使用:deep()选择器
+   ---------------------- */
+/* 事件块整体字体大小 */
+:deep(.fc-event) {
+  font-size: 0.7rem !important;
+}
+
+/* 事件标题统一样式 - 直接定位到标题元素 */
+:deep(.fc-event-title) {
+  font-size: 0.7rem !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 事件时间字体大小 */
+:deep(.fc-event-time) {
   font-size: inherit !important;
+  margin-bottom: 0 !important;
 }
 
-/* 确保FullCalendar事件标题使用正确的字体大小 - 最高优先级 */
-:root .fc-event-title {
-  font-size: 0.85rem !important;
-}
-
-/* 快速跳转功能样式 - 增强可见性 */
+/* 7. 快速跳转日历样式 */
 .quick-jump-calendar {
   position: absolute;
   top: 60px;
@@ -1672,7 +1839,7 @@ watch(() => entryStore.entries, (newEntries) => {
   transform: translateX(-50%);
   margin-top: 5px;
   background-color: white;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 1rem;
@@ -1688,8 +1855,8 @@ watch(() => entryStore.entries, (newEntries) => {
 }
 
 .month-nav-btn {
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  background-color: var(--primary-color);
+  border: 1px solid var(--primary-dark);
   width: 30px;
   height: 30px;
   border-radius: 4px;
@@ -1697,90 +1864,76 @@ watch(() => entryStore.entries, (newEntries) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: all 0.3s ease;
+  color: white;
 }
 
 .month-nav-btn:hover {
-  background-color: #e0e0e0;
+  background-color: var(--primary-dark);
+  border-color: var(--primary-dark);
 }
 
 .current-month {
   font-weight: 500;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
+/* 日历网格 */
 .calendar-grid {
-  width: 100%;
-  background-color: rgba(255, 255, 255, 0.95);
-  padding: 0.75rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  gap: 0;
   margin-bottom: 0.5rem;
-  gap: 2px;
 }
 
 .weekday {
   text-align: center;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-primary);
-  padding: 0.5rem 0;
-  background-color: rgba(245, 245, 245, 0.8);
-  border-radius: 4px;
+  color: var(--text-secondary);
+  padding: 0.25rem 0;
 }
 
 .days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 0.25rem;
 }
 
 .day {
-  width: 100%;
-  aspect-ratio: 1;
+  position: relative;
+  padding: 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  min-height: 36px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 2px;
-}
-
-.schedule-indicator {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-top: 2px;
-  transition: background-color 0.2s ease;
 }
 
 .day:hover {
-  background-color: #e3f2fd;
-  border-color: #4a90e2;
+  background-color: var(--bg-secondary);
 }
 
 .day.today {
-  background-color: #4a90e2;
-  color: white;
-  font-weight: 500;
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  font-weight: 600;
 }
 
 .day.selected {
-  background-color: #2196f3;
+  background-color: var(--primary-color);
   color: white;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .day.empty {
@@ -1789,183 +1942,53 @@ watch(() => entryStore.entries, (newEntries) => {
 
 .day.empty:hover {
   background-color: transparent;
-  border-color: transparent;
 }
 
-/* 调整列宽，使用百分比大小 */
-:deep(.fc-timegrid-view .fc-timegrid-col) {
-  width: 14.28% !important; /* 7天，每天约14.28% */
+/* 日程指示器 */
+.schedule-indicator {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
 }
 
-/* 弱化表格线：浅灰色细虚线 */
-:deep(.fc-timegrid-divider) {
-  border-color: #e0e0e0 !important;
-  border-style: dashed !important;
-  z-index: 0 !important;
-}
-
-:deep(.fc-timegrid-col-bg .fc-timegrid-slot) {
-  border-color: #e0e0e0 !important;
-  border-style: dashed !important;
-}
-
-:deep(.fc-timegrid-axis) {
-  border-right: 1px dashed #e0e0e0 !important;
-  z-index: 0 !important;
-  color: var(--text-primary) !important;
-  font-weight: 500 !important;
-  font-size: 0.8rem !important;
-}
-
-/* 增强列标题可见性 */
-:deep(.fc-day-header) {
-  color: var(--text-primary) !important;
-  font-weight: 600 !important;
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border-bottom: 1px dashed #e0e0e0 !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-/* 在23:00和0:00的分界位置添加加粗的黑线 */
-:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="23:00:00"]) {
-  border-bottom: 2px solid #000000 !important;
-  border-style: solid !important;
-  position: relative;
-  z-index: 1 !important;
-}
-
-/* 确保所有时间槽的z-index正确 */
-:deep(.fc-timegrid-slot) {
-  position: relative;
-  z-index: 1 !important;
-}
-
-/* 确保事件的z-index高于分隔线 */
-:deep(.fc-timegrid-view .fc-event) {
-  position: relative;
-  z-index: 2 !important;
-  transition: all 0.2s ease !important;
-}
-
-/* 确保时间段显示完整并保留滚动条 */
-:deep(.fc-scroller) {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  max-height: calc(100vh - 250px) !important;
-  position: relative;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary-color) transparent;
-}
-
-/* 确保23点格子完整显示，隐藏24点 */
-:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="23:00:00"]) {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-  height: auto !important;
-}
-
-/* 完全隐藏24点时间槽 */
-:deep(.fc-timegrid-view .fc-timegrid-slot[data-time="24:00:00"]) {
-  display: none !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* 优化日程块样式：圆角、阴影、字体 */
-:deep(.fc-event) {
-  font-size: 0.75rem !important;
-  padding: 4px 6px !important;
-  border-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  border: none !important;
-  transition: all 0.2s ease !important;
-}
-
-/* 日程块hover效果 */
-:deep(.fc-event:hover) {
-  transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-}
-
-/* 顶部日期展示样式 */
-.top-date-display {
-  text-align: center;
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 1rem;
-  padding: 0.5rem;
-  background-color: var(--bg-secondary);
-  border-radius: 6px;
-  box-shadow: 0 2px 4px var(--shadow-color);
-}
-
-/* 调整FullCalendar按钮样式 */
-:deep(.fc-button) {
-  background-color: var(--primary-color) !important;
-  border-color: var(--primary-color) !important;
-  color: white !important;
-}
-
-:deep(.fc-button:hover) {
-  background-color: var(--primary-dark) !important;
-  border-color: var(--primary-dark) !important;
-}
-
-:deep(.fc-button:focus) {
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2) !important;
-}
-
-:deep(.fc-button:active) {
-  background-color: var(--primary-dark) !important;
-  border-color: var(--primary-dark) !important;
-}
-
-/* 加载状态样式 - 角落小提示 */
+/* 8. 加载状态 */
 .loading-corner {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.5rem;
   background-color: white;
-  padding: 12px 16px;
+  padding: 0.5rem 1rem;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 10000;
-  min-width: 200px;
-  max-width: 300px;
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  font-size: 0.8rem;
+  color: var(--text-primary);
 }
 
 .loading-spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #4a90e2;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-left-color: var(--primary-color);
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
   animation: spin 1s linear infinite;
-  flex-shrink: 0;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
-  font-size: 0.9rem;
-  color: #333;
-  font-weight: 500;
-  line-height: 1.4;
-  word-break: break-word;
+  font-size: 0.8rem;
+  color: var(--text-primary);
 }
-
 </style>
