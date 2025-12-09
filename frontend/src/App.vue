@@ -17,19 +17,27 @@
           </div>
           
           <button @click="goToSmartInput" class="header-btn compact-btn">
-            <span class="btn-icon">✏️</span>
+            <span class="btn-icon">
+              <img src="/svg/pen.svg" alt="智能输入" class="btn-svg-icon">
+            </span>
             <span class="btn-text">智能输入</span>
           </button>
           <button @click="enterFocusMode" class="header-btn compact-btn">
-            <span class="btn-icon">🎯</span>
+            <span class="btn-icon">
+              <img src="/svg/timer.svg" alt="专注模式" class="btn-svg-icon">
+            </span>
             <span class="btn-text">专注模式</span>
           </button>
           <button @click="toggleHelp" class="header-btn compact-btn">
-            <span class="btn-icon">❓</span>
+            <span class="btn-icon">
+              <img src="/svg/help.svg" alt="帮助" class="btn-svg-icon">
+            </span>
             <span class="btn-text">帮助</span>
           </button>
           <button @click="toggleSettings" class="header-btn compact-btn">
-            <span class="btn-icon">⚙️</span>
+            <span class="btn-icon">
+              <img src="/svg/setting.svg" alt="设置" class="btn-svg-icon">
+            </span>
             <span class="btn-text">设置</span>
           </button>
         </div>
@@ -633,8 +641,29 @@ p, span, div, button {
 
 .btn-icon {
   font-size: 1rem;
-  width: 16px;
-  text-align: center;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* SVG图标样式 */
+.btn-svg-icon {
+  width: 18px;
+  height: 18px;
+  filter: brightness(0) invert(1); /* 将图标转换为白色 */
+  transition: filter 0.3s ease;
+  vertical-align: middle;
+}
+
+/* 确保深色模式下图标也是白色 */
+.dark .btn-svg-icon {
+  filter: brightness(0) invert(1);
+}
+
+/* 按钮悬停时的图标效果 */
+.header-actions button:hover .btn-svg-icon {
+  filter: brightness(0.8) invert(1); /* 悬停时稍微变暗 */
 }
 
 .btn-text {

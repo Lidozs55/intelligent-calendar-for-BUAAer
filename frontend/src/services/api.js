@@ -69,19 +69,19 @@ export const coursesAPI = {
 // 条目相关API - 用于处理所有类型的条目（课程、会议、学习、运动等）
 export const entriesAPI = {
   // 获取所有条目
-  getEntries: (signal) => api.get('/entries', { signal }),
+  getEntries: (signal) => api.get('/entries', signal ? { signal } : {}),
   // 按日期获取条目
-  getEntriesByDate: (date, signal) => api.get(`/entries/${date}`, { signal }),
+  getEntriesByDate: (date, signal) => api.get(`/entries/${date}`, signal ? { signal } : {}),
   // 按日期范围获取条目
-  getEntriesByDateRange: (startDate, endDate, signal) => api.get('/entries/range', { params: { start_date: startDate, end_date: endDate }, signal }),
+  getEntriesByDateRange: (startDate, endDate, signal) => api.get('/entries/range', { params: { start_date: startDate, end_date: endDate }, ...(signal ? { signal } : {}) }),
   // 添加新条目
-  addEntry: (data, signal) => api.post('/entries', data, { signal }),
+  addEntry: (data, signal) => api.post('/entries', data, signal ? { signal } : {}),
   // 更新条目
-  updateEntry: (id, data, signal) => api.put(`/entries/${id}`, data, { signal }),
+  updateEntry: (id, data, signal) => api.put(`/entries/${id}`, data, signal ? { signal } : {}),
   // 删除条目
-  deleteEntry: (id, signal) => api.delete(`/entries/${id}`, { signal }),
+  deleteEntry: (id, signal) => api.delete(`/entries/${id}`, signal ? { signal } : {}),
   // 获取课程类型的条目
-  getCourseEntries: (signal) => api.get('/entries/courses', { signal })
+  getCourseEntries: (signal) => api.get('/entries/courses', signal ? { signal } : {})
 }
 
 // 任务相关API

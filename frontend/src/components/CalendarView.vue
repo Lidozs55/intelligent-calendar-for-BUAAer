@@ -155,6 +155,38 @@ const typeToColor = {
 // 临时事件引用
 let tempEvent = null
 
+// 根据持续时间动态调整事件padding的函数
+const updateEventPadding = (event) => {
+  // 获取事件的开始和结束时间
+  const start = event.start;
+  const end = event.end;
+  
+  // 计算事件持续时间（毫秒）
+  const durationMs = end - start;
+  // 转换为小时
+  const durationHours = durationMs / (1000 * 60 * 60);
+  
+  // 获取事件元素
+  const eventEl = event.el;
+  const contentEl = eventEl.querySelector('.fc-event-main');
+  
+  // 如果是临时事件，添加data属性以便识别
+  if (event.extendedProps.isTemp) {
+    eventEl.setAttribute('data-is-temp', 'true');
+  }
+  
+  // 根据持续时间设置不同的padding
+  if (durationHours >= 1.5) {
+    // 如果事件持续时间达到或超过1.5小时，设置固定padding（已减半）
+    eventEl.style.padding = '1.5px 2.5px !important';
+    contentEl.style.padding = '1px 2px !important';
+  } else {
+    // 否则，设置百分比padding（增加!important以确保生效）
+    eventEl.style.padding = '2% 4% !important';
+    contentEl.style.padding = '1% 3% !important';
+  }
+}
+
 // 撤销栈和重做栈，用于存储最近5次的事件修改记录
 const undoStack = ref([])
 const redoStack = ref([])
@@ -706,9 +738,14 @@ eventClick: (clickInfo) => {
           console.log('事件已保存到数据库:', dropInfo.event)
         } catch (error) {
           console.error('保存事件到数据库失败:', error)
-          dropInfo.revert()
-          alert('保存失败，请重试')
+          // 移除alert提示，避免干扰用户
+          // alert('保存失败，请重试')
+          // 不再恢复事件位置，因为FullCalendar已经更新了事件的位置和大小
+          // dropInfo.revert()
         }
+        
+        // 修复：无论API请求是否成功，都更新事件padding
+        updateEventPadding(dropInfo.event)
       }
     },
     
@@ -780,9 +817,14 @@ eventClick: (clickInfo) => {
           console.log('事件已保存到数据库:', resizeInfo.event)
         } catch (error) {
           console.error('保存事件到数据库失败:', error)
-          resizeInfo.revert()
-          alert('保存失败，请重试')
+          // 移除alert提示，避免干扰用户
+          // alert('保存失败，请重试')
+          // 不再恢复事件大小，因为FullCalendar已经更新了事件的位置和大小
+          // resizeInfo.revert()
         }
+        
+        // 修复：无论API请求是否成功，都更新事件padding
+        updateEventPadding(resizeInfo.event)
       }
     },
     
