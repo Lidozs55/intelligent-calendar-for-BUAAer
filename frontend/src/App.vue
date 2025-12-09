@@ -16,29 +16,42 @@
             <div v-else class="user-avatar-placeholder">{{ getInitials() }}</div>
           </div>
           
-          <button @click="goToSmartInput" class="header-btn compact-btn">
+          <button @click="goToSmartInput" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <img src="/svg/pen.svg" alt="智能输入" class="btn-svg-icon">
             </span>
-            <span class="btn-text">智能输入</span>
+            <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">智能输入</span>
           </button>
-          <button @click="enterFocusMode" class="header-btn compact-btn">
+          <button @click="enterFocusMode" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <img src="/svg/timer.svg" alt="专注模式" class="btn-svg-icon">
             </span>
-            <span class="btn-text">专注模式</span>
+            <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">专注模式</span>
           </button>
-          <button @click="toggleHelp" class="header-btn compact-btn">
+          <button @click="toggleHelp" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <img src="/svg/help.svg" alt="帮助" class="btn-svg-icon">
             </span>
-            <span class="btn-text">帮助</span>
+            <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">帮助</span>
           </button>
-          <button @click="toggleSettings" class="header-btn compact-btn">
+          <button @click="toggleSettings" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <img src="/svg/setting.svg" alt="设置" class="btn-svg-icon">
             </span>
-            <span class="btn-text">设置</span>
+            <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">设置</span>
+          </button>
+          
+          <!-- 切换按钮显示/隐藏按钮文本 - 简化为左右箭头图标 -->
+          <button @click="toggleButtonText" class="header-btn toggle-text-btn" :class="{ 'btn-compact': !showButtonText }">
+            <span class="btn-icon">
+              <!-- 使用旋转的箭头表示展开/收起 -->
+              <svg v-if="showButtonText" class="btn-svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+              <svg v-else class="btn-svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </span>
           </button>
         </div>
       </header>
@@ -171,8 +184,16 @@ const clipboardStore = useClipboardStore()
 let notificationIntervalId = null
 let clipboardCheckInterval = null
 
+// 控制按钮文本显示/隐藏的状态
+const showButtonText = ref(true)
+
 // 最后一次剪切板内容
 let lastClipboardText = ''
+
+// 切换按钮文本显示/隐藏
+const toggleButtonText = () => {
+  showButtonText.value = !showButtonText.value
+}
 
 // 计算应用样式，动态设置CSS变量
 const appStyle = computed(() => {
@@ -551,7 +572,7 @@ p, span, div, button {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.2rem;
 }
 
 .header-actions button {
@@ -634,7 +655,13 @@ p, span, div, button {
   color: white;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease, width 0.3s ease, padding 0.3s ease;
+}
+
+/* 隐藏文本后的紧凑按钮样式 */
+.btn-compact {
+  width: 40px !important;
+  padding: 0.3rem !important;
 }
 
 /* 不再需要特殊处理第一个按钮，间距由header-actions的gap属性控制 */
@@ -645,6 +672,14 @@ p, span, div, button {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 紧凑状态下确保图标略微偏右 */
+.btn-compact .btn-icon {
+  width: 100%;
+  justify-content: center;
+  padding-left: 2px;
+  transform: translateX(1px);
 }
 
 /* SVG图标样式 */
@@ -669,6 +704,25 @@ p, span, div, button {
 .btn-text {
   font-size: 0.9rem;
   white-space: nowrap;
+  transition: opacity 0.3s ease, width 0.3s ease, margin-left 0.3s ease;
+  opacity: 1;
+  width: auto;
+  margin-left: 0.2rem;
+}
+
+/* 隐藏文本的样式 */
+.hidden-text {
+  opacity: 0;
+  width: 0;
+  margin-left: 0;
+  overflow: hidden;
+}
+
+/* 切换文本按钮的样式 */
+.toggle-text-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 统一按钮悬停效果 */

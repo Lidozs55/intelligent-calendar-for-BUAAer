@@ -1705,7 +1705,7 @@ watch(() => entryStore.entries, (newEntries) => {
   padding: 0.5rem 1rem !important;
   border-radius: 4px !important;
   cursor: pointer !important;
-  font-size: 0.8rem !important;
+  font-size: 0.85rem !important;
   transition: all 0.3s ease !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
   font-weight: 500 !important;
