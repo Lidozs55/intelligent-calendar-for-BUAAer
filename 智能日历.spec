@@ -5,7 +5,7 @@ a = Analysis(
     ['run_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('frontend/dist', 'frontend/dist'), ('frontend/public/sound', 'frontend/public/sound'), ('backend/config.py', 'backend'), ('backend/extensions.py', 'backend'), ('backend/models/*.py', 'backend/models'), ('backend/routes/*.py', 'backend/routes'), ('backend/services/*.py', 'backend/services'), ('backend/utils/*.py', 'backend/utils'), ('model', 'model')],
+    datas=[('frontend/dist', 'frontend/dist'), ('frontend/public/sound', 'frontend/public/sound'), ('frontend/public/svg', 'frontend/public/svg'), ('backend/config.py', 'backend'), ('backend/extensions.py', 'backend'), ('backend/models/*.py', 'backend/models'), ('backend/routes/*.py', 'backend/routes'), ('backend/services/*.py', 'backend/services'), ('backend/utils/*.py', 'backend/utils'), ('model', 'model')],
     hiddenimports=['flask_sqlalchemy', 'flask_cors', 'sqlalchemy', 'requests', 'python-dotenv', 'openai', 'easyocr', 'PIL', 'dashscope'],
     hookspath=[],
     hooksconfig={},

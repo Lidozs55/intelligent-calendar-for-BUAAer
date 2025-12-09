@@ -425,11 +425,12 @@ const syncBuaaCourses = async () => {
       courseStore.setCourses(coursesResponse.courses)
       
       // 使用完整的GET-BUAA_API-GET逻辑：先获取指定日期范围内的entries，然后同步课程表，最后再次获取entries
-      const formattedDate = date.toISOString().split('T')[0]
+    const formattedDate = date
       
       // 1. 先获取当前日期的entries，确保数据基础
-      const initialEntriesResponse = await entriesAPI.getEntriesByDate(formattedDate)
-      const initialEntries = Array.isArray(initialEntriesResponse) ? initialEntriesResponse : (initialEntriesResponse.entries || [])
+      // 注：此步骤可考虑移除，因为后续会再次获取完整的7天数据
+      // const initialEntriesResponse = await entriesAPI.getEntriesByDate(formattedDate)
+      // const initialEntries = Array.isArray(initialEntriesResponse) ? initialEntriesResponse : (initialEntriesResponse.entries || [])
       
       // 2. 再次同步课程表（使用按日期同步API，确保获取最新数据）
       try {
@@ -443,7 +444,12 @@ const syncBuaaCourses = async () => {
       }
       
       // 3. 最后再次获取entries数据，确保获取到最新的课程表数据
-      const entriesResponse = await entriesAPI.getEntriesByDate(formattedDate)
+      // 直接使用 /entries/<date> API，它已经默认返回7天范围的条目
+      // 将formattedDate前移一天
+      const targetDate = new Date(formattedDate)
+      targetDate.setDate(targetDate.getDate() - 1)
+      const previousDay = targetDate.toISOString().split('T')[0]
+      const entriesResponse = await entriesAPI.getEntriesByDate(previousDay)
       const entries = Array.isArray(entriesResponse) ? entriesResponse : (entriesResponse.entries || [])
       entryStore.setEntries(entries)
       

@@ -57,7 +57,17 @@ def create_app(config_class=Config):
         db.create_all()
     
     # 配置静态文件服务
-    frontend_dist = current_dir.parent / 'frontend' / 'dist'
+    # 检查是否运行在PyInstaller打包的exe环境中
+    import sys
+    if hasattr(sys, '_MEIPASS'):
+        # 打包为exe时，使用sys._MEIPASS作为基础路径
+        meipass_path = sys._MEIPASS
+        frontend_dist = pathlib.Path(meipass_path) / 'frontend' / 'dist'
+        public_path = pathlib.Path(meipass_path) / 'frontend' / 'public'
+    else:
+        # 开发环境下，使用实际文件系统路径
+        frontend_dist = current_dir.parent / 'frontend' / 'dist'
+        public_path = current_dir.parent / 'frontend' / 'public'
     
     # 静态文件路由
     @app.route('/assets/<path:filename>')
@@ -67,7 +77,12 @@ def create_app(config_class=Config):
     # 声音文件路由
     @app.route('/sound/<path:filename>')
     def serve_sounds(filename):
-        return send_from_directory(str(current_dir.parent / 'frontend' / 'public' / 'sound'), filename)
+        return send_from_directory(str(public_path / 'sound'), filename)
+    
+    # SVG文件路由
+    @app.route('/svg/<path:filename>')
+    def serve_svgs(filename):
+        return send_from_directory(str(public_path / 'svg'), filename)
     
     # 主页面路由
     @app.route('/')

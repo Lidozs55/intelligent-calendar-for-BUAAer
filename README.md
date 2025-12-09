@@ -52,160 +52,46 @@
 intelligent-calendar-for-BUAAer/
 ├── backend/                 # 后端代码
 │   ├── models/             # 数据模型
-│   │   ├── __init__.py     # 模型初始化
-│   │   ├── course.py       # 课程模型
-│   │   ├── entry.py        # 日历条目模型
-│   │   ├── focus_record.py # 专注记录模型
-│   │   ├── task.py         # 任务模型
-│   │   └── user.py         # 用户模型
 │   ├── routes/             # API路由
-│   │   ├── __init__.py     # 路由初始化
-│   │   ├── auth.py         # 认证相关
-│   │   ├── courses.py      # 课程管理
-│   │   ├── entries.py      # 日历条目
-│   │   ├── llm.py          # LLM集成
-│   │   ├── schedule.py     # 日程管理
-│   │   ├── settings.py     # 设置管理
-│   │   └── tasks.py        # 任务管理
 │   ├── services/           # 业务逻辑
-│   │   ├── __init__.py     # 服务初始化
-│   │   ├── buaa_api.py     # 北航API对接
-│   │   ├── llm_parser.py   # LLM解析服务
-│   │   ├── reminder.py     # 提醒服务
-│   │   ├── schedule_manager.py # 日程管理器
-│   │   └── session_manager.py # 会话管理
 │   ├── utils/              # 工具函数
-│   │   └── __init__.py     # 工具初始化
 │   ├── app.py              # 应用入口
 │   ├── config.py           # 配置文件
 │   ├── extensions.py       # 扩展初始化
 │   └── requirements.txt    # 依赖列表
 ├── frontend/               # 前端代码
 │   ├── public/             # 静态资源
-│   │   ├── sound/          # 音效文件
-│   │   └── svg/            # SVG图标
-│   ├── src/               # 源代码
-│   │   ├── components/    # Vue组件
-│   │   │   ├── BatchAddModal.vue      # 批量添加模态框
-│   │   │   ├── CalendarView.vue       # 日历视图
-│   │   │   ├── ClipboardQueue.vue     # 剪贴板队列
-│   │   │   ├── EventEditModal.vue     # 事件编辑模态框
-│   │   │   ├── FocusMode.vue          # 专注模式
-│   │   │   ├── SettingsPanel.vue      # 设置面板
-│   │   │   ├── SmartInput.vue         # 智能输入
-│   │   │   └── TaskSidebar.vue        # 任务侧边栏
-│   │   ├── services/      # 服务层
-│   │   ├── store/         # 状态管理
-│   │   ├── views/         # 页面视图
-│   │   ├── App.vue        # 根组件
-│   │   └── main.js        # 入口文件
-│   ├── index.html         # HTML模板
-│   ├── package-lock.json  # 依赖锁文件
-│   ├── package.json       # 依赖配置
-│   └── vite.config.js     # Vite配置
-├── .gitignore             # Git忽略文件
-├── README.md              # 项目说明文档
-└── run_app.py             # 应用启动脚本
+│   ├── src/                # 源代码
+│   ├── index.html          # HTML模板
+│   ├── package.json        # 依赖配置
+│   └── vite.config.js      # Vite配置
+├── .gitignore              # Git忽略文件
+├── README.md               # 项目说明文档
+├── INSTALLATION.md         # 详细安装指南
+└── run_app.py              # 应用启动脚本
 ```
 
-## 环境配置
+## 快速开始
 
-### 后端环境
+### 环境要求
 
-1. **安装依赖**:
-   
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+- Node.js 16.x 或更高
+- Python 3.8 或更高
+- npm 8.x 或更高
+- pip 20.x 或更高
 
-2. **配置文件**:
-   创建或修改 `.env` 文件，配置数据库连接和API密钥。
-   
-   **配置API_KEY的两种方式**:
-   
-   **方式一：通过前端设置界面配置**
-   - 启动前端应用后，点击右上角的"设置"按钮
-   - 在"API_KEY配置"部分输入您的API Key
-   - 点击"保存API Key"，系统会自动将API Key保存到后端的 `.env` 文件中
-   
-   **方式二：手动配置 `.env` 文件**
-   - 在后端目录创建 `.env` 文件
-   - 添加 `LLM_API_KEY=your-api-key-here` 配置项
-   - 阿里云百炼API_KEY获取方法：[开通服务后创建获取APIKey](https://help.aliyun.com/zh/model-studio/get-api-key)
-   - 确保API_KEY的归属业务空间有调用相应模型的权限
+### 安装与运行
 
-3. **初始化数据库**:
-   
-   ```bash
-   python app.py
-   ```
-   
-   应用启动时会自动创建数据库表。
+请参考详细的[安装指南](./INSTALLATION.md)，包含：
 
-### 前端环境
+- Node.js 和 Python 安装步骤
+- 项目代码获取方法
+- 后端环境配置
+- 前端环境配置
+- EasyOCR 安装与替代方案
+- 常见问题与解决方案
 
-1. **安装依赖**:
-   
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. **开发模式**:
-   
-   ```bash
-   npm run dev
-   ```
-   
-   前端应用将在 http://localhost:3000 启动。
-
-3. **构建生产版本**:
-   
-   ```bash
-   npm run build
-   ```
-   
-   构建产物将生成在 `dist` 目录。
-
-## 常见问题与解决方案
-
-### 1. EasyOCR 模型加载失败
-
-**问题描述**：运行应用时出现 EasyOCR 相关错误，如闪退、下载超时或模型加载失败。
-
-**解决方案**：
-
-#### 方案 1：手动安装 EasyOCR 模型
-
-1. 下载详细的模型安装指南：[EASY_OCR_MODEL_INSTALL_GUIDE.md](EASY_OCR_MODEL_INSTALL_GUIDE.md)
-2. 按照指南手动下载并安装以下模型文件：
-   - `detector.tar.gz`
-   - `zh_sim_g2.zip`
-   - `en_g2.zip`
-3. 将模型文件解压到 `~/.EasyOCR/model/` 目录
-4. 重启应用即可使用
-
-#### 方案 2：跳过 OCR 功能
-
-如果您不需要图片识别功能，可以修改代码跳过 OCR 初始化：
-
-1. 打开 `backend/routes/llm.py` 文件
-2. 注释掉 EasyOCR 初始化代码：
-   ```python
-   # reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
-   ```
-3. 重启后端服务
-
-#### 方案 3：使用其他 OCR 服务
-
-考虑使用国内友好的 OCR 服务替代 EasyOCR：
-- **PaddleOCR**：百度开源的 OCR 库，国内网络友好
-- **百度 OCR API**：在线 OCR 服务，无需本地模型
-
-## 运行说明
-
-### 开发环境
+### 启动应用
 
 1. **启动后端服务**:
    
@@ -213,8 +99,6 @@ intelligent-calendar-for-BUAAer/
    cd backend
    python app.py
    ```
-   
-   后端服务将在 http://localhost:5000 启动。
 
 2. **启动前端服务**:
    
@@ -222,26 +106,9 @@ intelligent-calendar-for-BUAAer/
    cd frontend
    npm run dev
    ```
-   
-   前端应用将在 http://localhost:3000 启动。
 
 3. **访问应用**:
    在浏览器中访问 http://localhost:3000 即可使用应用。
-
-### 生产环境
-
-1. **构建前端**:
-   
-   ```bash
-   cd frontend
-   npm run build
-   ```
-
-2. **部署后端**:
-   使用 Gunicorn 或 uWSGI 部署 Flask 应用。
-
-3. **配置反向代理**:
-   使用 Nginx 或 Apache 配置反向代理，将前端和后端服务整合。
 
 ## API文档
 
@@ -256,10 +123,6 @@ intelligent-calendar-for-BUAAer/
 - `POST /api/courses` - 添加课程
 - `PUT /api/courses/<id>` - 更新课程
 - `DELETE /api/courses/<id>` - 删除课程
-- `POST /api/courses/init_session` - 初始化会话
-- `POST /api/courses/check_login` - 检查登录状态
-- `POST /api/courses/process_login_callback` - 处理登录回调
-- `GET /api/courses/fetch_course_schedule` - 获取课程表
 - `POST /api/courses/sync_buaa` - 同步北航课程表
 - `POST /api/courses/sync_buaa/<date>` - 按指定日期同步北航课程表
 
@@ -269,7 +132,6 @@ intelligent-calendar-for-BUAAer/
 - `POST /api/entries` - 创建日历条目
 - `PUT /api/entries/<id>` - 更新日历条目
 - `DELETE /api/entries/<id>` - 删除日历条目
-- `GET /api/entries/courses` - 获取课程类型的条目
 - `GET /api/entries/<date>` - 获取指定日期及之后7天内的所有条目
 
 ### 任务管理
@@ -280,6 +142,10 @@ intelligent-calendar-for-BUAAer/
 - `DELETE /api/tasks/<id>` - 删除任务
 - `PUT /api/tasks/<id>/complete` - 标记任务为完成
 - `PUT /api/tasks/<id>/uncomplete` - 标记任务为未完成
+
+### 提醒管理
+
+- `POST /api/reminders/upcoming` - 获取即将到来的提醒
 
 ## 功能模块详细说明
 
@@ -362,7 +228,7 @@ intelligent-calendar-for-BUAAer/
 
 ### 2. 学习偏好配置
 
-- 允许用户设置学习偏好（如最佳学习时间、科目偏好）
+- 允许用户设置更多的学习偏好（如与时间相联系的科目偏好）
 - 根据偏好智能推荐学习计划
 - 个性化学习路径生成
 

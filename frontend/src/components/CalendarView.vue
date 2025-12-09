@@ -541,6 +541,16 @@ const calendarOptions = {
         // 更新视图的内部日期范围
         info.view.currentStart = startDate
         info.view.currentEnd = endDate
+        
+        // 直接更新标题元素的文本内容
+        const titleEl = document.querySelector('.fc-toolbar-title')
+        if (titleEl) {
+          // 格式化日期显示
+          const options = { year: 'numeric', month: 'long', day: 'numeric' }
+          const startStr = startDate.toLocaleDateString('zh-CN', options)
+          const endStr = endDate.toLocaleDateString('zh-CN', options)
+          titleEl.textContent = `${startStr} - ${endStr}`
+        }
       }
     },
     
@@ -585,7 +595,7 @@ const calendarOptions = {
       const centerDate = info.start
       fetchDataAndUpdateCalendar(centerDate)
       
-      // 移除动态标题修改，使用FullCalendar的titleFormat选项直接控制标题格式
+      // 移除了原有的动态标题修改代码，现在使用datesDidUpdate事件中的直接DOM操作来更新标题
       
       // 仅为周末添加浅蓝背景（节假日功能暂时禁用）
       setTimeout(() => {
