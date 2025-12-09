@@ -8,6 +8,13 @@
           <div class="current-date-display">
             <span class="current-date">{{ new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }) }}</span>
           </div>
+          <!-- 提醒信息展示 -->
+          <div v-if="showReminders" class="reminder-display">
+            <div class="reminder-item" :class="getReminderUrgencyClass(reminders[currentReminderIndex])">
+              <span class="reminder-title">{{ reminders[currentReminderIndex]?.title }}</span>
+              <span class="reminder-time">{{ formatReminderTime(reminders[currentReminderIndex]?.start_time) }}</span>
+            </div>
+          </div>
         </div>
         <div class="header-actions">
           <!-- 用户头像 -->
@@ -28,13 +35,13 @@
             </span>
             <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">专注模式</span>
           </button>
-          <button @click="toggleHelp" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
+          <button @click="toggleHelp" class="header-btn compact-btn small-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <img src="/svg/help.svg" alt="帮助" class="btn-svg-icon">
             </span>
             <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">帮助</span>
           </button>
-          <button @click="toggleSettings" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
+          <button @click="toggleSettings" class="header-btn compact-btn small-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <img src="/svg/setting.svg" alt="设置" class="btn-svg-icon">
             </span>
@@ -42,7 +49,7 @@
           </button>
           
           <!-- 切换按钮显示/隐藏按钮文本 - 简化为左右箭头图标 -->
-          <button @click="toggleButtonText" class="header-btn toggle-text-btn" :class="{ 'btn-compact': !showButtonText }">
+          <button @click="toggleButtonText" class="header-btn toggle-text-btn btn-compact" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
               <!-- 使用旋转的箭头表示展开/收起 -->
               <svg v-if="showButtonText" class="btn-svg-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -162,7 +169,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import Home from './views/Home.vue'
 import SmartInputPage from './views/SmartInputPage.vue'
 import TaskSidebar from './components/TaskSidebar.vue'
@@ -170,6 +177,7 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import FocusMode from './components/FocusMode.vue'
 import { useUserStore, useTaskStore, useCourseStore, useSettingsStore, useClipboardStore } from './store'
 import notificationService from './services/notification'
+import { remindersAPI } from './services/api'
 
 // 页面管理状态
 const currentPage = ref('home')
@@ -183,9 +191,16 @@ const settingsStore = useSettingsStore()
 const clipboardStore = useClipboardStore()
 let notificationIntervalId = null
 let clipboardCheckInterval = null
+let reminderIntervalId = null
 
 // 控制按钮文本显示/隐藏的状态
 const showButtonText = ref(true)
+
+// 提醒相关状态
+const reminders = ref([])
+const currentReminderIndex = ref(0)
+const showReminders = ref(false)
+let reminderRotationInterval = null
 
 // 最后一次剪切板内容
 let lastClipboardText = ''
@@ -193,6 +208,106 @@ let lastClipboardText = ''
 // 切换按钮文本显示/隐藏
 const toggleButtonText = () => {
   showButtonText.value = !showButtonText.value
+}
+
+// 格式化提醒时间
+const formatReminderTime = (startTime) => {
+  if (!startTime) return ''
+  
+  const now = new Date()
+  const eventTime = new Date(startTime)
+  
+  // 计算日期差，忽略时间部分
+  const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const eventDate = new Date(eventTime.getFullYear(), eventTime.getMonth(), eventTime.getDate())
+  const diffTime = eventDate - nowDate
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  
+  // 格式化时间为hh:mm
+  const timeString = eventTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  
+  if (diffDays === 0) {
+    // 今天的事件，只显示时间
+    return timeString
+  } else {
+    // 未来的事件，显示x天后hh:mm
+    return `${diffDays}天后${timeString}`
+  }
+}
+
+// 根据时间比值计算提醒的紧急程度类名
+const getReminderUrgencyClass = (reminder) => {
+  if (!reminder) return ''
+  
+  const now = new Date()
+  const eventTime = new Date(reminder.start_time)
+  const timeDiffMinutes = (eventTime - now) / (1000 * 60)
+  
+  // 获取用户设置的对应提醒时间
+  let reminderTimeMinutes = 60 // 默认1小时
+  const eventType = reminder.event_type?.toLowerCase()
+  
+  if (eventType === 'exam') {
+    // 考试使用前往考场提醒时间
+    reminderTimeMinutes = settingsStore.reminderSettings.exam[1] || 60
+  } else {
+    // 其他事件使用课程/讲座/会议提醒时间
+    reminderTimeMinutes = settingsStore.reminderSettings.course || 30
+  }
+  
+  // 计算时间比值
+  const ratio = timeDiffMinutes / reminderTimeMinutes
+  
+  // 根据比值返回不同的紧急程度类名
+  if (ratio <= 0.25) {
+    return 'urgent'
+  } else if (ratio <= 0.5) {
+    return 'high'
+  } else if (ratio <= 0.75) {
+    return 'medium'
+  } else {
+    return 'low'
+  }
+}
+
+// 获取即将到来的提醒
+const fetchReminders = async () => {
+  try {
+    // 使用设置中的提醒参数
+    const response = await remindersAPI.getUpcomingReminders(settingsStore.reminderSettings)
+    if (response.success) {
+      reminders.value = response.reminders
+      showReminders.value = reminders.value.length > 0
+      
+      // 如果有提醒，开始轮换展示
+      if (showReminders.value) {
+        startReminderRotation()
+      }
+    }
+  } catch (error) {
+    console.error('获取提醒失败:', error)
+  }
+}
+
+// 开始轮换提醒
+const startReminderRotation = () => {
+  // 清除现有的轮换定时器
+  if (reminderRotationInterval) {
+    clearInterval(reminderRotationInterval)
+  }
+  
+  // 每5秒轮换一次提醒
+  reminderRotationInterval = setInterval(() => {
+    currentReminderIndex.value = (currentReminderIndex.value + 1) % reminders.value.length
+  }, 5000)
+}
+
+// 停止轮换提醒
+const stopReminderRotation = () => {
+  if (reminderRotationInterval) {
+    clearInterval(reminderRotationInterval)
+    reminderRotationInterval = null
+  }
 }
 
 // 计算应用样式，动态设置CSS变量
@@ -409,6 +524,16 @@ onMounted(() => {
   
   // 启动定期检查剪切板，每5秒检查一次
   clipboardCheckInterval = setInterval(autoCheckClipboard, 5000)
+  
+  // 立即获取一次提醒，然后每分钟获取一次
+  fetchReminders()
+  reminderIntervalId = setInterval(fetchReminders, 60000)
+  
+  // 加载头像
+  const savedAvatar = localStorage.getItem('avatarUrl')
+  if (savedAvatar) {
+    userStore.updateAvatarUrl(savedAvatar)
+  }
 })
 
 // 组件卸载时清除定时器
@@ -418,6 +543,12 @@ onUnmounted(() => {
   }
   if (clipboardCheckInterval) {
     clearInterval(clipboardCheckInterval)
+  }
+  if (reminderIntervalId) {
+    clearInterval(reminderIntervalId)
+  }
+  if (reminderRotationInterval) {
+    clearInterval(reminderRotationInterval)
   }
 })
 
@@ -543,30 +674,125 @@ p, span, div, button {
 .app-header {
   background-color: var(--bg-header);
   color: white;
-  padding: 0.25rem 1.5rem;
+  padding: 0.5rem 1.5rem 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 4px var(--shadow-color);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+}
+
+/* 提醒信息样式 - 基础样式 */
+.reminder-display {
+  width: 100%;
+  max-width: 400px;
+}
+
+/* 提醒条居中定位 */
+.reminder-display {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0.5rem;
+  margin: 0;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  animation: fadeIn 0.5s ease-in-out;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+/* 根据紧急程度显示不同颜色 */
+.reminder-item.urgent {
+  background-color: rgba(255, 68, 68, 0.9);
+  color: white;
+}
+
+.reminder-item.high {
+  background-color: rgba(255, 102, 102, 0.9);
+  color: white;
+}
+
+.reminder-item.medium {
+  background-color: rgba(255, 170, 0, 0.9);
+  color: white;
+}
+
+.reminder-item.low {
+  background-color: rgba(74, 144, 226, 0.9);
+  color: white;
+}
+
+.reminder-title {
+  flex: 1;
+  margin-right: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reminder-time {
+  font-weight: 600;
+  min-width: 80px;
+  text-align: right;
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .header-left {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 1rem;
+  flex: 1;
 }
 
 .app-header h1 {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 500;
+  text-align: left;
 }
 
 .current-date-display {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+}
+
+/* 提醒信息容器 */
+.app-header {
+  position: relative;
+}
+
+/* 提醒信息样式 */
+.reminder-display {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0.5rem;
+  width: 100%;
+  max-width: 400px;
+  margin: 0;
 }
 
 .header-actions {
@@ -647,7 +873,7 @@ p, span, div, button {
   justify-content: center;
   gap: 0.2rem;
   padding: 0.3rem 0.5rem;
-  width: 90px;
+  width: 95px;
   height: 32px;
   box-sizing: border-box;
   border-radius: 4px;
@@ -656,6 +882,13 @@ p, span, div, button {
   font-size: 0.9rem;
   cursor: pointer;
   transition: background-color 0.3s ease, transform 0.2s ease, width 0.3s ease, padding 0.3s ease;
+}
+
+/* 小型按钮样式 - 用于设置、帮助和隐藏按钮 */
+.header-actions button.small-btn {
+  padding: 0.2rem 0.3rem;
+  width: 75px;
+  font-size: 0.85rem;
 }
 
 /* 隐藏文本后的紧凑按钮样式 */

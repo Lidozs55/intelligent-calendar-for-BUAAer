@@ -212,9 +212,8 @@ export const useSettingsStore = defineStore('settings', {
     
     return {
       reminderSettings: {
-        course: parsedSettings.reminderSettings?.course || 30, // 课程提前30分钟提醒
-        exam: parsedSettings.reminderSettings?.exam || [7*24*60, 24*60, 2*60], // 考试提前1周、1天、2小时提醒
-        homework: parsedSettings.reminderSettings?.homework || 24*60 // 作业提前24小时提醒
+        course: parsedSettings.reminderSettings?.course || 30, // 课程/讲座/会议提前30分钟提醒
+        exam: parsedSettings.reminderSettings?.exam || [14, 60] // 考试提前14天复习提醒，提前1小时前往考场提醒
       },
       theme: 'light', // 强制使用浅色主题
       energyCycle: {

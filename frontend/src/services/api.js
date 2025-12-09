@@ -120,4 +120,10 @@ export const settingsAPI = {
   saveApiKey: (data) => api.post('/settings/api_key', data)
 }
 
+// 提醒相关API
+export const remindersAPI = {
+  // 获取即将到来的提醒
+  getUpcomingReminders: (settings = {}, signal) => api.post('/reminders/upcoming', { settings }, { ...(signal ? { signal } : {}) })
+}
+
 export default api

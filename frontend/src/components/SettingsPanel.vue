@@ -80,7 +80,7 @@
         <h3>提醒偏好设置</h3>
         <div class="settings-form">
           <div class="form-group">
-            <label for="course-reminder">课程提前提醒时间（分钟）</label>
+            <label for="course-reminder">课程/讲座/会议提前提醒时间（分钟）</label>
             <input 
               type="number" 
               id="course-reminder" 
@@ -90,36 +90,26 @@
           </div>
           
           <div class="form-group">
-            <label for="homework-reminder">作业提前提醒时间（分钟）</label>
-            <input 
-              type="number" 
-              id="homework-reminder" 
-              v-model.number="reminderSettings.homework" 
-              min="0"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label>考试多级提醒（分钟）</label>
+            <label>考试多级提醒</label>
             <div class="multi-reminder">
-              <input 
-                type="number" 
-                v-model.number="reminderSettings.exam[0]" 
-                placeholder="第一级" 
-                min="0"
-              />
-              <input 
-                type="number" 
-                v-model.number="reminderSettings.exam[1]" 
-                placeholder="第二级" 
-                min="0"
-              />
-              <input 
-                type="number" 
-                v-model.number="reminderSettings.exam[2]" 
-                placeholder="第三级" 
-                min="0"
-              />
+              <div class="exam-reminder-item">
+                <label class="exam-reminder-label">复习提醒（天数）</label>
+                <input 
+                  type="number" 
+                  v-model.number="reminderSettings.exam[0]" 
+                  placeholder="复习提醒" 
+                  min="0"
+                />
+              </div>
+              <div class="exam-reminder-item">
+                <label class="exam-reminder-label">前往考场提醒（分钟）</label>
+                <input 
+                  type="number" 
+                  v-model.number="reminderSettings.exam[1]" 
+                  placeholder="前往考场提醒" 
+                  min="0"
+                />
+              </div>
             </div>
           </div>
           
@@ -757,8 +747,31 @@ const saveApiKey = async () => {
         background-color: #f5f5f5;
     }
 
+.multi-reminder {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.exam-reminder-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exam-reminder-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
 .multi-reminder input {
-  flex: 1;
+  width: 100%;
+  max-width: 200px;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 1rem;
 }
 
 .theme-options {

@@ -1222,27 +1222,17 @@ const handleEventDelete = async (eventId) => {
       if (undoStack.value.length > MAX_UNDO_STEPS) {
         undoStack.value.shift()
       }
+      
+      // 从日历视图中移除事件
+      deletedEvent.remove()
     }
   }
   
-  // 直接通过API删除服务器上的事件
+  // 刷新日历数据，确保删除后数据准确
   try {
     // 创建新的AbortController用于此请求
     const deleteEventAbortController = new AbortController()
     
-    await entriesAPI.deleteEntry(eventId, deleteEventAbortController.signal)
-    console.log('事件已从数据库删除:', eventId)
-    
-    // 从日历视图中移除事件
-    if (calendarRef.value) {
-      const calendarApi = calendarRef.value.getApi()
-      const eventToRemove = calendarApi.getEventById(eventId)
-      if (eventToRemove) {
-        eventToRemove.remove()
-      }
-    }
-    
-    // 添加GET api/entries的逻辑，确保删除后日历数据准确
     // 使用当前视图的中心日期
     const formattedDate = currentViewDate.value.toISOString().split('T')[0]
     // 调用API获取所有条目，刷新前端
@@ -1255,10 +1245,10 @@ const handleEventDelete = async (eventId) => {
     console.log('已刷新日历，删除的日程已更新')
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log('删除事件请求已取消')
+      console.log('刷新日历请求已取消')
       return
     }
-    console.error('删除事件或刷新日历失败:', error)
+    console.error('刷新日历失败:', error)
     // 移除不必要的alert，只在控制台打印错误信息
   }
 }
