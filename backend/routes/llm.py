@@ -66,7 +66,7 @@ def parse_text():
                         'task_type': 'homework',
                         'deadline': task['deadline'].replace(' ', 'T') + ':00' if task.get('deadline') else None,
                         'estimated_time': task['estimated_time'] or 0,
-                        'priority': 'medium',
+                        'priority': 50,
                         'completed': False
                     }
                     
@@ -85,7 +85,7 @@ def parse_text():
                         description=task_data.get('description', ''),
                         task_type=task_data.get('task_type', 'homework'),
                         deadline=parse_datetime(task_data.get('deadline')),
-                        priority=task_data.get('priority', 'medium')
+                        priority=task_data.get('priority', 50)
                     )
                     
                     from extensions import db
@@ -172,17 +172,63 @@ def parse_image():
             img = Image.open(image)
             print(f"成功打开图片，格式: {img.format}, 尺寸: {img.size}")
             
+            # 图像预处理：针对不同字体大小进行优化
+            print("开始图像预处理...")
+            
+            # 转换为RGB模式（如果不是的话）
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # 获取图像尺寸
+            width, height = img.size
+            
+            # 导入必要的图像处理库
+            from PIL import ImageEnhance, ImageFilter
+            
+            # 创建预处理后的图像副本
+            processed_img = img.copy()
+            
+            # 智能图像增强：同时兼顾大小字体识别
+            # 适度增强对比度，既有助于大字体边缘识别，也不影响小字体
+            processed_img = ImageEnhance.Contrast(processed_img).enhance(1.1)  # 适度增强对比度
+            
+            # 轻度锐化处理，突出文本边缘但避免过度锐化导致小字体失真
+            processed_img = ImageEnhance.Sharpness(processed_img).enhance(1.2)  # 轻度锐化
+            
+            # 仅在极端情况下进行图像缩放，避免影响小字体
+            # 只对超大图像（超过2000px）进行缩放，且缩放比例不低于0.5
+            max_size = 2000
+            if max(width, height) > max_size:
+                # 计算缩放比例，确保不低于0.5倍
+                scale = max_size / max(width, height)
+                scale = max(scale, 0.5)  # 确保缩放比例不低于0.5
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                
+                # 仅当缩放能显著减少计算量且不会过度影响小字体时才进行缩放
+                if max(width, height) - max(new_width, new_height) > 500:
+                    processed_img = processed_img.resize((new_width, new_height), Image.Resampling.LANCZOS)  # 使用高质量插值
+                    print(f"超大图像，已缩放到: {new_width}x{new_height}")
+            
             # 使用easyocr进行OCR识别
             print("开始OCR识别...")
             try:
                 # 保存图片到临时文件，因为easyocr需要文件路径
                 import tempfile
                 with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
-                    img.save(temp_file, format='PNG')
+                    processed_img.save(temp_file, format='PNG')
                     temp_file_path = temp_file.name
                 
-                # 使用easyocr进行识别
-                results = get_easyocr_reader().readtext(temp_file_path, detail=0)
+                # 使用easyocr进行识别，平衡大小字体识别的参数设置
+                results = get_easyocr_reader().readtext(
+                    temp_file_path, 
+                    detail=0,
+                    adjust_contrast=0.5,  # 适度调整对比度，兼顾大小字体
+                    contrast_ths=0.2,  # 适中的对比度阈值，平衡文本区域检测
+                    text_threshold=0.7,  # 适中的文本阈值，兼顾大小字体识别
+                    low_text=0.3,  # 较低的低文本阈值，确保小字体被检测
+                    link_threshold=0.7  # 适中的链接阈值，优化文本行合并
+                )
                 print(f"OCR识别结果: {results}")
                 
                 # 合并识别结果
@@ -242,3 +288,89 @@ def parse_clipboard():
         return jsonify({'result': result}), 200
     else:
         return jsonify({'message': '解析失败'}), 500
+
+@llm_bp.route('/generate/entries_from_task', methods=['POST'])
+def generate_entries_from_task():
+    """根据任务生成日程安排"""
+    data = request.get_json()
+    task = data.get('task')
+    user_preferences = data.get('user_preferences')
+    start_date = data.get('start_date')
+    
+    if not task:
+        return jsonify({'message': '缺少任务信息'}), 400
+    
+    result = llm_parser.generate_entries_from_task(task, user_preferences, start_date)
+    
+    if result:
+        # 直接处理LLM返回的结果，创建条目
+        import json
+        from datetime import datetime
+        
+        try:
+            # 解析LLM返回的JSON
+            llm_data = json.loads(result)
+            # 仅保留LLM返回的JSON文本输出
+            print(json.dumps(llm_data, ensure_ascii=False, indent=2))
+            
+            created_entries = []
+            
+            # 创建条目
+            if llm_data.get('entries'):
+                for entry in llm_data['entries']:
+                    # 调用entriesAPI创建条目
+                    entry_data = {
+                        'title': entry['title'],
+                        'description': '',
+                        'entry_type': entry['entry_type'] or 'study',
+                        'start_time': entry['start_time'].replace(' ', 'T') + ':00',
+                        'end_time': entry['end_time'].replace(' ', 'T') + ':00'
+                    }
+                    
+                    # 直接调用Entry模型创建条目
+                    from models.entry import Entry
+                    
+                    def parse_datetime_local(date_str):
+                        if len(date_str) == 16:  # 格式为 YYYY-MM-DDTHH:MM
+                            date_str += ':00'  # 添加秒
+                        local_dt = datetime.fromisoformat(date_str)
+                        return local_dt.replace(tzinfo=None)
+                    
+                    new_entry = Entry(
+                        title=entry_data['title'],
+                        description=entry_data.get('description'),
+                        entry_type=entry_data['entry_type'],
+                        start_time=parse_datetime_local(entry_data['start_time']),
+                        end_time=parse_datetime_local(entry_data['end_time']),
+                        color=entry_data.get('color')
+                    )
+                    
+                    from extensions import db
+                    db.session.add(new_entry)
+                    db.session.commit()
+                    
+                    # 将创建的条目添加到返回列表中
+                    created_entries.append({
+                        'id': new_entry.id,
+                        'title': new_entry.title,
+                        'description': new_entry.description,
+                        'entry_type': new_entry.entry_type,
+                        'start_time': new_entry.start_time.isoformat(),
+                        'end_time': new_entry.end_time.isoformat(),
+                        'color': new_entry.color
+                    })
+            
+            return jsonify({
+                'result': result,
+                'message': '生成成功，已创建条目',
+                'created_entries': created_entries
+            }), 200
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'result': result,
+                'message': f'生成成功，但创建条目失败: {str(e)}'
+            }), 500
+    else:
+        return jsonify({'message': '生成失败'}), 500

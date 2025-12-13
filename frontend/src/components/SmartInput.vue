@@ -35,7 +35,7 @@
       </div>
       <textarea
         v-model="inputText"
-        placeholder="输入任务描述，例如：'明天下午3点交数学作业'\n\n支持拖拽图片上传或从剪切板粘贴图片"
+        placeholder="输入任务描述，例如：'明天下午3点交数学作业'.支持拖拽图片上传或从剪切板粘贴图片"
         rows="4"
         @input="handleInput"
         @paste="handlePaste"

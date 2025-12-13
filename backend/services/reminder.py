@@ -245,18 +245,34 @@ class ReminderService:
         根据任务优先级获取颜色
         
         Args:
-            priority: 任务优先级
+            priority: 任务优先级（整数）
             
         Returns:
             str: 颜色代码
         """
+        # 将整数优先级映射到颜色
+        if isinstance(priority, int):
+            # 根据优先级相对值判断：
+            # 0-80: high优先级（重要）
+            # 81-240: medium优先级
+            # 241+: low优先级（不重要）
+            if priority <= 80:
+                priority_str = 'high'  # 高优先级
+            elif priority <= 240:
+                priority_str = 'medium'  # 中优先级
+            else:
+                priority_str = 'low'  # 低优先级
+        else:
+            # 兼容旧的字符串优先级
+            priority_str = priority
+        
         priority_color_map = {
             'urgent': '#ff4444',
             'high': '#ff6666',
             'medium': '#ffaa00',
             'low': '#4a90e2'
         }
-        return priority_color_map.get(priority, '#4a90e2')
+        return priority_color_map.get(priority_str, '#4a90e2')
 
 # 创建单例实例
 reminder_service = ReminderService()

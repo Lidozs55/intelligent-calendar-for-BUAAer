@@ -583,7 +583,7 @@ const calendarOptions = {
     },
     
     // 日期渲染事件，用于自定义表头样式和日期导航
-    datesSet: debounce((info) => {
+    datesSet: (info) => {
       console.log('日期范围已设置:', info)
       // 确保始终显示7天
       if (info.view.type === 'timeGridWeek') {
@@ -619,7 +619,7 @@ const calendarOptions = {
           }
         })
       }, 100)
-    }, 300),
+    },
     
     // 选择日期范围事件
     select: (selectInfo) => {
@@ -931,7 +931,9 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
   }
   
   // 创建新的AbortController
-  abortController = new AbortController()
+  const newAbortController = new AbortController()
+  // 更新全局abortController引用
+  abortController = newAbortController
   
   try {
     // 确保date是一个有效的JavaScript Date对象
@@ -948,12 +950,11 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
     const formattedDate = validDate.toISOString().split('T')[0]
     
     // 1. 获取指定日期范围内的entries
-    const response = await entriesAPI.getEntriesByDate(formattedDate, abortController.signal)
+    const response = await entriesAPI.getEntriesByDate(formattedDate, newAbortController.signal)
     // 处理API返回的数据结构，确保获取到正确的条目数组
     const entries = Array.isArray(response) ? response : (response.entries || [])
     // 更新entryStore.entries数组
     entryStore.setEntries(entries)
-    
     // 更新日历事件
     updateCalendarEvents(entries)
     
@@ -962,17 +963,17 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
       loadingStatus.value = '正在同步课程表...'
       
       // 获取北航学号
-      const buaaIdResponse = await authAPI.getBuaaId(abortController.signal)
+      const buaaIdResponse = await authAPI.getBuaaId(newAbortController.signal)
       if (buaaIdResponse.buaa_id) {
         // 调用新的按日期同步课程表API，并传递abort signal
           await coursesAPI.syncBuaaCoursesByDate(formattedDate, {
             buaa_id: buaaIdResponse.buaa_id,
             password: '' // 密码由后端存储，前端不需要传递
-          }, abortController.signal)
+          }, newAbortController.signal)
         
         // 3. 同步成功后，再次获取entries刷新前端
         loadingStatus.value = '课程表同步成功，正在刷新日历...'
-        const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate, abortController.signal)
+        const refreshedResponse = await entriesAPI.getEntriesByDate(formattedDate, newAbortController.signal)
         const refreshedEntries = Array.isArray(refreshedResponse) ? refreshedResponse : (refreshedResponse.entries || [])
         entryStore.setEntries(refreshedEntries)
         updateCalendarEvents(refreshedEntries)
@@ -998,11 +999,15 @@ const fetchDataAndUpdateCalendar = async (date = adjustInitialDate()) => {
       calendarApi.removeAllEvents()
     }
   } finally {
-    // 关闭加载状态
-    isLoading.value = false
-    loadingStatus.value = ''
-    // 清理abortController
-    abortController = null
+    // 只有当前请求的AbortController与全局AbortController相同时，才清理资源
+    // 这确保了只有最后一个请求能清理资源，避免了资源泄漏
+    if (abortController === newAbortController) {
+      // 关闭加载状态
+      isLoading.value = false
+      loadingStatus.value = ''
+      // 清理abortController
+      abortController = null
+    }
   }
 }
 
@@ -1159,24 +1164,13 @@ const handleEventUpdate = async (eventData) => {
     }
   }
   
-  // 直接通过API更新服务器
+  // 直接刷新日历，不再次调用API更新服务器
+  // 因为事件已经在EventEditModal.vue的saveEvent函数中处理过了
   try {
     // 创建新的AbortController用于此请求
     const updateEventAbortController = new AbortController()
     
-    // 调用API更新条目
-    if (eventData.id) {
-      // 只处理已经存在的事件，新事件已经在EventEditModal.vue的saveEvent函数中处理过了
-      await entriesAPI.updateEntry(eventData.id, {
-        title: eventData.title,
-        description: eventData.description || '',
-        entry_type: eventData.extendedProps.type,
-        start_time: eventData.start,
-        end_time: eventData.end,
-        color: eventData.backgroundColor
-      }, updateEventAbortController.signal)
-      console.log('事件已更新到数据库:', eventData)
-    }
+    // 事件已经在EventEditModal.vue的saveEvent函数中处理过了，这里不需要再次调用API更新服务器
     
     // 添加GET api/entries的逻辑，确保新建日程会立马显示
     // 使用当前视图的中心日期
@@ -1304,6 +1298,17 @@ const handleUndo = async () => {
         currentEvent.setProp('title', lastOperation.title)
         currentEvent.setProp('backgroundColor', lastOperation.backgroundColor)
         currentEvent.setProp('borderColor', lastOperation.borderColor)
+        
+        // 更新事件的editable属性，处理拖动黑名单问题
+        const isEditable = !['course', 'lecture', 'exam'].includes(lastOperation.extendedProps.type)
+        currentEvent.setProp('editable', isEditable)
+        
+        // 由于FullCalendar没有setExtendedProp方法，我们需要重新创建事件来更新extendedProps
+        currentEvent.remove()
+        calendarApi.addEvent({
+          ...lastOperation,
+          editable: isEditable
+        })
         
         // 调用API更新服务器
         const formatDateTime = (date) => {
@@ -1569,6 +1574,26 @@ watch(() => entryStore.entries, (newEntries) => {
   // 只更新日历事件，不重新请求API
   updateCalendarEvents(newEntries)
 }, { deep: true })
+
+// 添加LLM生成的条目
+const addLLMEntries = (entries) => {
+  try {
+    // 将新条目添加到entryStore中
+    entries.forEach(entry => {
+      entryStore.addEntry(entry)
+    })
+    
+    // 刷新日历视图
+    fetchDataAndUpdateCalendar(selectedDate.value)
+  } catch (err) {
+    console.error('添加LLM条目失败:', err)
+  }
+}
+
+// 暴露方法给父组件
+defineExpose({
+  addLLMEntries
+})
 </script><style scoped>
 /* ==============================================
    日历组件样式重构

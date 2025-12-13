@@ -1,7 +1,43 @@
 from flask import Blueprint, request, jsonify
 from services.reminder import reminder_service
+from models.task import Task
+from extensions import db
+from datetime import datetime
 
 reminders_bp = Blueprint('reminders', __name__)
+
+def clean_expired_tasks():
+    """清理已过期的任务"""
+    try:
+        now = datetime.now()
+        
+        # 删除所有已过期的任务
+        expired_tasks = Task.query.filter(Task.deadline < now).all()
+        
+        if expired_tasks:
+            # 记录删除的任务数量
+            deleted_count = len(expired_tasks)
+            
+            # 删除任务
+            for task in expired_tasks:
+                db.session.delete(task)
+            
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'deleted_count': deleted_count
+            }
+        
+        return {
+            'success': True,
+            'deleted_count': 0
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 @reminders_bp.route('/upcoming', methods=['GET', 'POST'])
 def get_upcoming_reminders():
@@ -15,6 +51,9 @@ def get_upcoming_reminders():
         json: 包含即将到来事件的列表
     """
     try:
+        # 清理过期任务
+        clean_expired_tasks()
+        
         # 获取用户设置
         settings = None
         if request.method == 'POST':

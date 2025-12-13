@@ -17,11 +17,6 @@
           </div>
         </div>
         <div class="header-actions">
-          <!-- 用户头像 -->
-          <div class="user-avatar-container" @click="toggleSettings">
-            <img v-if="userStore.avatarUrl" :src="userStore.avatarUrl" alt="用户头像" class="user-avatar">
-            <div v-else class="user-avatar-placeholder">{{ getInitials() }}</div>
-          </div>
           
           <button @click="goToSmartInput" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
@@ -65,11 +60,18 @@
       
       <main class="app-main">
         <aside class="sidebar">
-          <TaskSidebar @add-task="goToSmartInput" @start-focus="startFocusFromTask" />
+          <TaskSidebar @add-task="goToSmartInput" @start-focus="startFocusFromTask" @open-quadrant-view="openQuadrantView" @close-quadrant-view="goToCalendarView" @llm-entries-created="handleLLMEntriesCreated" />
         </aside>
         
         <section class="main-content">
-          <Home />
+          <template v-if="currentView === 'calendar'">
+            <Home ref="homeRef" />
+          </template>
+          <template v-else-if="currentView === 'quadrant'">
+            <div class="quadrant-view-wrapper">
+              <QuadrantView />
+            </div>
+          </template>
         </section>
       </main>
       
@@ -175,15 +177,18 @@ import SmartInputPage from './views/SmartInputPage.vue'
 import TaskSidebar from './components/TaskSidebar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import FocusMode from './components/FocusMode.vue'
+import QuadrantView from './components/QuadrantView.vue'
 import { useUserStore, useTaskStore, useCourseStore, useSettingsStore, useClipboardStore } from './store'
 import notificationService from './services/notification'
 import { remindersAPI } from './services/api'
 
 // 页面管理状态
 const currentPage = ref('home')
+const currentView = ref('calendar') // calendar 或 quadrant
 const showSettings = ref(false)
 const showHelp = ref(false)
 const focusModeRef = ref(null)
+const homeRef = ref(null)
 const userStore = useUserStore()
 const taskStore = useTaskStore()
 const courseStore = useCourseStore()
@@ -460,13 +465,7 @@ const autoCheckClipboard = async () => {
   }
 }
 
-// 获取用户姓名首字母作为头像占位符
-const getInitials = () => {
-  if (userStore.userInfo?.name) {
-    return userStore.userInfo.name.charAt(0).toUpperCase()
-  }
-  return 'U'
-}
+
 
 // 切换设置面板
 const toggleSettings = () => {
@@ -496,6 +495,24 @@ const goToSmartInput = () => {
 // 返回到主页
 const goToHome = () => {
   currentPage.value = 'home'
+}
+
+// 打开四象限视图
+const openQuadrantView = () => {
+  currentView.value = 'quadrant'
+}
+
+// 返回到日历视图
+const goToCalendarView = () => {
+  currentView.value = 'calendar'
+}
+
+// 处理LLM生成的新条目
+const handleLLMEntriesCreated = (entries) => {
+  // 将新条目传递给Home组件，以便Home组件可以通知CalendarView刷新
+  if (homeRef.value) {
+    homeRef.value.addLLMEntries(entries)
+  }
 }
 
 // 计算属性：获取所有任务（包括已完成和未完成）
@@ -528,12 +545,6 @@ onMounted(() => {
   // 立即获取一次提醒，然后每分钟获取一次
   fetchReminders()
   reminderIntervalId = setInterval(fetchReminders, 60000)
-  
-  // 加载头像
-  const savedAvatar = localStorage.getItem('avatarUrl')
-  if (savedAvatar) {
-    userStore.updateAvatarUrl(savedAvatar)
-  }
 })
 
 // 组件卸载时清除定时器
@@ -812,41 +823,7 @@ p, span, div, button {
   transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-/* 用户头像样式 */
-.user-avatar-container {
-  position: relative;
-  cursor: pointer;
-  margin-right: 0.5rem;
-}
 
-.user-avatar,
-.user-avatar-placeholder {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid transparent;
-  transition: all 0.3s ease;
-}
-
-.user-avatar {
-  object-fit: cover;
-}
-
-.user-avatar-placeholder {
-  background-color: var(--primary-color);
-  color: white;
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.user-avatar-container:hover .user-avatar,
-.user-avatar-container:hover .user-avatar-placeholder {
-  border-color: var(--primary-light);
-  transform: scale(1.05);
-}
 
 /* 紧凑按钮样式 - 统一固定宽度和对齐 */
 .compact-btn {
@@ -983,6 +960,51 @@ p, span, div, button {
   padding: 1rem;
   overflow-y: auto;
   transition: background-color 0.3s ease;
+}
+
+.quadrant-view-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.view-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.back-btn svg {
+  filter: brightness(0) invert(1);
 }
 
 .settings-overlay {

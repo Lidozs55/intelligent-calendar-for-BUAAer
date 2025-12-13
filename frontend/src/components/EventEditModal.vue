@@ -216,9 +216,10 @@ const saveEvent = async () => {
       await entriesAPI.addEntry(entryData)
     }
     
-    // 关闭模态框并通知父组件
-    emit('update', formData.value)
+    // 先关闭模态框，然后再通知父组件更新
+    // 这样可以确保模态框立即关闭，而不等待后续的API调用
     closeModal()
+    emit('update', formData.value)
   } catch (error) {
     console.error('保存事件失败:', error)
     // 更详细的错误信息

@@ -2,6 +2,15 @@
   <div class="task-sidebar">
   <div class="sidebar-header">
     <h2>任务管理</h2>
+    <button class="quadrant-btn" @click="toggleQuadrantView" title="{{ isQuadrantView ? '返回日历视图' : '四象限视图' }}" :class="{ 'active': isQuadrantView }">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      <span class="btn-text">{{ isQuadrantView ? '返回' : '四象限' }}</span>
+    </button>
   </div>
   
   <!-- 任务统计进度卡片 -->
@@ -176,10 +185,9 @@
           <div class="form-group">
             <label for="task-priority">优先级</label>
             <select id="task-priority" v-model="formData.priority">
-              <option value="low">低</option>
-              <option value="medium">中</option>
-              <option value="high">高</option>
-              <option value="urgent">紧急</option>
+              <option value="75">低</option>
+              <option value="50">中</option>
+              <option value="25">高</option>
             </select>
           </div>
           
@@ -194,9 +202,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTaskStore, useUserStore } from '../store'
-import { tasksAPI } from '../services/api'
+import { tasksAPI, llmAPI } from '../services/api'
 
 const taskStore = useTaskStore()
 const userStore = useUserStore()
@@ -209,7 +217,7 @@ const formData = ref({
   description: '',
   task_type: 'individual_homework',
   deadline: '',
-  priority: 'medium',
+  priority: 50,
   completed: false
 })
 
@@ -335,7 +343,7 @@ const addNewTask = () => {
     description: '',
     task_type: 'individual_homework',
     deadline: formatDateTimeForInput(today),
-    priority: 'medium',
+    priority: 50,
     completed: false
   }
   showTaskModal.value = true
@@ -377,18 +385,44 @@ const saveTask = async () => {
   }
   
   try {
+    let newTask = null
     if (editingTask.value) {
       // 更新任务
       await tasksAPI.updateTask(editingTask.value.id, taskData)
+      newTask = { ...editingTask.value, ...taskData }
     } else {
       // 添加任务
-      await tasksAPI.addTask(taskData)
+      const response = await tasksAPI.addTask(taskData)
+      newTask = response.task
     }
     
     // 重新加载任务列表，确保数据最新
     await loadTasks()
     
+    // 先关闭模态框，提升用户体验
     closeTaskModal()
+    
+    // 对于新添加的任务，在后台异步调用LLM生成日程安排
+    if (!editingTask.value) {
+      // 不使用await，让LLM调用在后台异步执行
+      (async () => {
+        try {
+          // 调用LLM生成日程安排
+          const llmResponse = await llmAPI.generateEntriesFromTask({
+            task: newTask,
+            start_date: new Date().toISOString().split('T')[0]
+          })
+          
+          // 如果LLM返回了新的条目，通过事件通知父组件刷新日历
+          if (llmResponse.created_entries && llmResponse.created_entries.length > 0) {
+            emit('llm-entries-created', llmResponse.created_entries)
+          }
+        } catch (llmErr) {
+          console.error('LLM生成日程失败:', llmErr)
+          // 不影响任务保存，只记录错误
+        }
+      })()
+    }
   } catch (err) {
     console.error('保存任务失败:', err)
     alert('保存任务失败，请重试')
@@ -424,6 +458,20 @@ const closeTaskModal = () => {
   }
 }
 
+// 四象限视图状态
+const isQuadrantView = ref(false)
+
+// 切换四象限视图
+const toggleQuadrantView = () => {
+  isQuadrantView.value = !isQuadrantView.value
+  // 触发事件，通知父组件切换视图
+  if (isQuadrantView.value) {
+    emit('open-quadrant-view')
+  } else {
+    emit('close-quadrant-view')
+  }
+}
+
 // 格式化日期
 const formatDate = (dateString) => {
   const date = new Date(dateString)
@@ -443,11 +491,21 @@ const getTaskTypeLabel = (type) => {
 
 // 获取优先级标签
 const getPriorityLabel = (priority) => {
+  // 将整数优先级映射到文本标签
+  if (typeof priority === 'number') {
+    if (priority <= 33) {
+      return '高'
+    } else if (priority <= 66) {
+      return '中'
+    } else {
+      return '低'
+    }
+  }
+  // 兼容旧的字符串格式
   const priorityMap = {
     low: '低',
     medium: '中',
-    high: '高',
-    urgent: '紧急'
+    high: '高'
   }
   return priorityMap[priority] || priority
 }
@@ -476,7 +534,7 @@ onMounted(() => {
 })
 
 // 定义组件的事件
-const emit = defineEmits(['add-task', 'start-focus'])
+const emit = defineEmits(['add-task', 'start-focus', 'open-quadrant-view', 'close-quadrant-view', 'llm-entries-created'])
 </script>
 
 <style scoped>
@@ -489,12 +547,55 @@ const emit = defineEmits(['add-task', 'start-focus'])
 
 .sidebar-header {
   margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .sidebar-header h2 {
   font-size: 1.25rem;
   margin: 0;
   color: #333;
+}
+
+.quadrant-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.quadrant-btn:hover {
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.quadrant-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.quadrant-btn.active:hover {
+  background-color: var(--primary-dark);
+  transform: none;
+}
+
+.quadrant-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.quadrant-btn .btn-text {
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .task-stats {

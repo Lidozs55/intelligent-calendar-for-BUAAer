@@ -5,8 +5,7 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     userInfo: null,
     buaaId: null,
-    buaaCookies: null,
-    avatarUrl: null
+    buaaCookies: null
   }),
   
   actions: {
@@ -14,7 +13,6 @@ export const useUserStore = defineStore('user', {
     setUserInfo(info) {
       this.userInfo = info
       this.buaaId = info.buaa_id
-      this.avatarUrl = info.avatar_url || null
       if (info.buaa_cookies) {
         this.buaaCookies = info.buaa_cookies
       }
@@ -36,20 +34,11 @@ export const useUserStore = defineStore('user', {
       }
     },
     
-    // 更新头像URL
-    updateAvatarUrl(avatarUrl) {
-      this.avatarUrl = avatarUrl
-      if (this.userInfo) {
-        this.userInfo.avatar_url = avatarUrl
-      }
-    },
-    
     // 清除用户信息
     clearUserInfo() {
       this.userInfo = null
       this.buaaId = null
       this.buaaCookies = null
-      this.avatarUrl = null
     }
   }
 })
@@ -161,9 +150,21 @@ export const useTaskStore = defineStore('task', {
         return task.task_type !== 'temp'
       })
       
+      // 过滤掉已过期的未完成任务
+      const now = new Date()
+      const filteredTasks = nonTempTasks.filter(task => {
+        // 已完成的任务全部保留
+        if (task.completed) {
+          return true
+        }
+        // 未完成的任务，只保留未过期的
+        const deadline = new Date(task.deadline)
+        return deadline >= now
+      })
+      
       // 区分待完成和已完成任务
-      this.tasks = nonTempTasks.filter(task => !task.completed)
-      this.completedTasks = nonTempTasks.filter(task => task.completed)
+      this.tasks = filteredTasks.filter(task => !task.completed)
+      this.completedTasks = filteredTasks.filter(task => task.completed)
     },
     
     // 添加任务

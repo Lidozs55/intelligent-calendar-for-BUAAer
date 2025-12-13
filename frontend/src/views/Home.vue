@@ -1,13 +1,28 @@
 <template>
   <div class="home-container">
     <div class="calendar-section">
-      <CalendarView />
+      <CalendarView ref="calendarViewRef" />
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, defineExpose, watch } from 'vue'
 import CalendarView from '../components/CalendarView.vue'
+
+const calendarViewRef = ref(null)
+
+// 定义组件暴露的方法，用于父组件调用
+const addLLMEntries = (entries) => {
+  if (calendarViewRef.value) {
+    // 调用CalendarView组件的方法来添加新条目
+    calendarViewRef.value.addLLMEntries(entries)
+  }
+}
+
+defineExpose({
+  addLLMEntries
+})
 </script>
 
 <style scoped>

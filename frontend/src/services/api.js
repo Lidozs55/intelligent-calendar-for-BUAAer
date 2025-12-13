@@ -45,7 +45,9 @@ export const llmAPI = {
   // 解析图片OCR识别内容
   parseImage: (data) => api.post('/llm/parse/image', data),
   // 解析剪切板内容
-  parseClipboard: (data) => api.post('/llm/parse/clipboard', data)
+  parseClipboard: (data) => api.post('/llm/parse/clipboard', data),
+  // 根据任务生成日程安排
+  generateEntriesFromTask: (data) => api.post('/llm/generate/entries_from_task', data)
 }
 
 // 课程相关API

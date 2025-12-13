@@ -30,7 +30,8 @@ def get_tasks():
             'task_type': task.task_type,
             'deadline': task.deadline.isoformat() if task.deadline else None,
             'priority': task.priority,
-            'completed': task.completed
+            'completed': task.completed,
+            'entry_id': task.entry_id  # 返回entry_id字段
         })
     
     return jsonify({'tasks': result}), 200
@@ -62,7 +63,9 @@ def add_task():
         description=data.get('description', ''),
         task_type=data.get('task_type', 'homework'),
         deadline=parse_datetime(data.get('deadline')),
-        priority=data.get('priority', 'medium')
+        priority=data.get('priority', 50),
+        urgency=data.get('urgency', 50.0),  # 添加紧急度字段，默认为50.0
+        entry_id=data.get('entry_id')  # 添加对entry_id的支持
     )
     
     db.session.add(new_task)
@@ -78,7 +81,9 @@ def add_task():
             'task_type': new_task.task_type,
             'deadline': new_task.deadline.isoformat() if new_task.deadline else None,
             'priority': new_task.priority,
-            'completed': new_task.completed
+            'urgency': new_task.urgency,
+            'completed': new_task.completed,
+            'entry_id': new_task.entry_id  # 返回entry_id
         }
     }), 201
 
@@ -111,7 +116,9 @@ def update_task(task_id):
     task.task_type = data.get('task_type', task.task_type)
     task.deadline = parse_datetime(data.get('deadline')) if data.get('deadline') is not None else task.deadline
     task.priority = data.get('priority', task.priority)
+    task.urgency = data.get('urgency', task.urgency)  # 更新紧急度字段
     task.completed = data.get('completed', task.completed)
+    task.entry_id = data.get('entry_id', task.entry_id)  # 更新entry_id
     
     db.session.commit()
     
@@ -133,11 +140,24 @@ def update_task(task_id):
 @tasks_bp.route('/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
     """删除任务"""
+    from models.entry import Entry
+    
     task = Task.query.get(task_id)
     
     if not task:
         return jsonify({'message': '任务不存在'}), 404
     
+    # 如果任务关联了日程，恢复日程样式
+    if task.entry_id:
+        entry = Entry.query.get(task.entry_id)
+        if entry:
+            # 恢复默认颜色
+            entry.color = "#4a90e2"  # 默认蓝色
+            # 移除[任务已完成]标记
+            if entry.description and "[任务已完成]" in entry.description:
+                entry.description = entry.description.replace(" [任务已完成]", "").replace("[任务已完成]", "")
+    
+    # 删除任务
     db.session.delete(task)
     db.session.commit()
     
@@ -147,12 +167,24 @@ def delete_task(task_id):
 @tasks_bp.route('/<int:task_id>/complete', methods=['PUT'])
 def complete_task(task_id):
     """标记任务为完成"""
+    from models.entry import Entry
+    
     task = Task.query.get(task_id)
     
     if not task:
         return jsonify({'message': '任务不存在'}), 404
     
+    # 标记任务为完成
     task.completed = True
+    
+    # 如果任务关联了日程，更新日程样式
+    if task.entry_id:
+        entry = Entry.query.get(task.entry_id)
+        if entry:
+            # 更新日程颜色，使用浅色表示已完成
+            entry.color = '#e0e0e0'  # 浅灰色表示已完成
+            entry.description = f"{entry.description} [任务已完成]" if entry.description else "[任务已完成]"
+    
     db.session.commit()
     
     return jsonify({'message': '任务已标记为完成'}), 200
@@ -161,12 +193,26 @@ def complete_task(task_id):
 @tasks_bp.route('/<int:task_id>/uncomplete', methods=['PUT'])
 def uncomplete_task(task_id):
     """标记任务为未完成"""
+    from models.entry import Entry
+    
     task = Task.query.get(task_id)
     
     if not task:
         return jsonify({'message': '任务不存在'}), 404
     
+    # 标记任务为未完成
     task.completed = False
+    
+    # 如果任务关联了日程，恢复日程样式
+    if task.entry_id:
+        entry = Entry.query.get(task.entry_id)
+        if entry:
+            # 恢复默认颜色
+            entry.color = "#4a90e2"  # 默认蓝色
+            # 移除[任务已完成]标记
+            if entry.description and "[任务已完成]" in entry.description:
+                entry.description = entry.description.replace(" [任务已完成]", "").replace("[任务已完成]", "")
+    
     db.session.commit()
     
     return jsonify({'message': '任务已标记为未完成'}), 200
