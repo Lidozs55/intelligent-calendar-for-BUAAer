@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" :class="theme" :style="appStyle">
+  <div class="app-container" :class="[isMobilePage ? 'mobile-page' : '', isMobilePage ? theme : 'light']" :style="appStyle">
     <!-- 移动端页面 -->
     <template v-if="isMobilePage">
       <MobileHome />
@@ -205,25 +205,67 @@
                       <strong>注意：</strong>cpolar服务未正确启动，当前使用本地地址
                     </li>
                   </ul>
+                  <div class="refresh-section">
+                    <button @click="handleRefreshQRCode" :disabled="isRefreshing" class="refresh-btn">
+                      <svg v-if="!isRefreshing" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                      </svg>
+                      <svg v-else class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                      </svg>
+                      {{ isRefreshing ? '刷新中...' : '刷新二维码' }}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div class="connection-details">
-                <h3>连接信息</h3>
-                <p><strong>本地IP:</strong> {{ mobileAccessInfo?.local_ip || '获取中...' }}</p>
-                <p><strong>端口:</strong> {{ mobileAccessInfo?.port || '5000' }}</p>
-                <p><strong>cpolar状态:</strong> 
-                  <span :class="{ 
-                    'cpolar-status-available': mobileAccessInfo?.cpolar_status === 'available',
-                    'cpolar-status-unavailable': mobileAccessInfo?.cpolar_status === 'unavailable'
-                  }">
-                    {{ mobileAccessInfo?.cpolar_status === 'available' ? '可用' : '未可用' }}
-                  </span>
-                </p>
-                <p><strong>访问地址:</strong> {{ mobileAccessInfo?.mobile_url || '' }}</p>
-                <p v-if="mobileAccessInfo?.cpolar_url" class="cpolar-url-info">
-                  <strong>cpolar域名:</strong> {{ mobileAccessInfo?.cpolar_url }}
-                </p>
+              <h3>连接信息</h3>
+              <p><strong>本地IP:</strong> {{ mobileAccessInfo?.local_ip || '获取中...' }}</p>
+              <p><strong>端口:</strong> {{ mobileAccessInfo?.port || '5000' }}</p>
+              <p><strong>cpolar状态:</strong> 
+                <span :class="{ 
+                  'cpolar-status-available': mobileAccessInfo?.cpolar_status === 'available',
+                  'cpolar-status-unavailable': mobileAccessInfo?.cpolar_status === 'unavailable'
+                }">
+                  {{ mobileAccessInfo?.cpolar_status === 'available' ? '可用' : '未可用' }}
+                </span>
+              </p>
+              <p><strong>访问地址:</strong> {{ mobileAccessInfo?.mobile_url || '' }}</p>
+              <p v-if="mobileAccessInfo?.cpolar_url" class="cpolar-url-info">
+                <strong>cpolar域名:</strong> {{ mobileAccessInfo?.cpolar_url }}
+              </p>
+            </div>
+            
+            <!-- CPolar Authtoken配置 -->
+            <div class="cpolar-authtoken-section">
+              <h3>CPolar配置</h3>
+              <div class="cpolar-info">
+                <p>获取CPolar Authtoken的方法：</p>
+                <ol>
+                  <li>访问 <a href="https://dashboard.cpolar.com/" target="_blank" class="external-link">https://dashboard.cpolar.com/</a></li>
+                  <li>登录您的CPolar账号</li>
+                  <li>在左侧菜单中选择"Authtokens"</li>
+                  <li>复制您的Authtoken</li>
+                  <li>粘贴到下方输入框并点击"保存"</li>
+                </ol>
               </div>
+              <div class="authtoken-input-section">
+                <div class="input-group">
+                  <label for="cpolar-authtoken">CPolar Authtoken：</label>
+                  <input 
+                    type="text" 
+                    id="cpolar-authtoken" 
+                    v-model="cpolarAuthtoken" 
+                    placeholder="./cpolar authtoken"
+                    class="authtoken-input"
+                  >
+                </div>
+                <button @click="saveCPolarAuthtoken" class="save-btn authtoken-save-btn">保存</button>
+              </div>
+            </div>
             <div class="help-actions">
               <button @click="togglePhoneQRCode" class="save-btn">关闭</button>
             </div>
@@ -264,6 +306,10 @@ const homeRef = ref(null)
 const showPhoneQRCode = ref(false)
 const phoneQRCodeData = ref(null)
 const mobileAccessInfo = ref(null)
+const isRefreshing = ref(false)
+const cpolarAuthtoken = ref('')
+let refreshTimeout = null
+const DEBOUNCE_TIME = 1000 // 防抖时间，1秒
 
 // 判断是否为移动端页面
 const isMobilePage = ref(false)
@@ -584,6 +630,46 @@ const fetchMobileAccessInfo = async () => {
     }
   } catch (error) {
     console.error('获取手机访问信息失败:', error)
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
+// 防抖刷新二维码
+const handleRefreshQRCode = () => {
+  // 清除之前的定时器
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout)
+  }
+  
+  // 设置新的定时器
+  refreshTimeout = setTimeout(async () => {
+    isRefreshing.value = true
+    await fetchMobileAccessInfo()
+  }, DEBOUNCE_TIME)
+}
+
+// 保存CPolar authtoken
+const saveCPolarAuthtoken = async () => {
+  try {
+    const response = await fetch('/api/mobile/set_cpolar_authtoken', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ authtoken: cpolarAuthtoken.value })
+    })
+    const data = await response.json()
+    if (data.success) {
+      alert('CPolar Authtoken保存成功')
+      // 刷新二维码
+      handleRefreshQRCode()
+    } else {
+      alert('CPolar Authtoken保存失败: ' + (data.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('保存CPolar Authtoken失败:', error)
+    alert('保存CPolar Authtoken失败，请检查网络连接')
   }
 }
 
@@ -726,10 +812,13 @@ settingsStore.$subscribe(updateNotificationCheck)
   --primary-light: #e3f2fd;
   --primary-dark: #1976d2;
   --accent-color: var(--primary-color, #4a90e2);
+  --input-bg: white;
+  --input-text: #333;
+  --button-hover: rgba(0, 0, 0, 0.1);
 }
 
-/* 深色主题变量 */
-.dark {
+/* 仅移动端支持深色主题 */
+.mobile-page.dark {
   --bg-primary: #121212;
   --bg-secondary: #1e1e1e;
   --bg-header: var(--primary-dark, #1976d2);
@@ -759,33 +848,33 @@ p, span, div, button {
   font-weight: 400;
 }
 
-/* 深色模式下的表单元素样式 */
-.dark input,
-.dark select,
-.dark textarea {
+/* 移动端深色模式下的表单元素样式 */
+.mobile-page.dark input,
+.mobile-page.dark select,
+.mobile-page.dark textarea {
   background-color: var(--input-bg);
   color: var(--input-text);
   border-color: var(--border-color);
 }
 
-.dark input:focus,
-.dark select:focus,
-.dark textarea:focus {
+.mobile-page.dark input:focus,
+.mobile-page.dark select:focus,
+.mobile-page.dark textarea:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
 }
 
-/* 深色模式下的按钮样式 */
-.dark button {
+/* 移动端深色模式下的按钮样式 */
+.mobile-page.dark button {
   color: var(--text-primary);
 }
 
-.dark .header-btn {
+.mobile-page.dark .header-btn {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark .header-btn:hover {
+.mobile-page.dark .header-btn:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
@@ -1014,8 +1103,8 @@ p, span, div, button {
   vertical-align: middle;
 }
 
-/* 确保深色模式下图标也是白色 */
-.dark .btn-svg-icon {
+/* 确保移动端深色模式下图标也是白色 */
+.mobile-page.dark .btn-svg-icon {
   filter: brightness(0) invert(1);
 }
 
@@ -1379,13 +1468,144 @@ p, span, div, button {
   margin-bottom: 0.5rem;
 }
 
-/* 适配深色主题 */
-.dark .cpolar-url-info {
+/* 适配移动端深色主题 */
+.mobile-page.dark .cpolar-url-info {
   background-color: rgba(76, 175, 80, 0.2);
 }
 
-.dark .qr-error {
+.mobile-page.dark .qr-error {
   background-color: rgba(244, 67, 54, 0.2);
   color: #ff5252;
+}
+
+/* 刷新按钮样式 */
+.refresh-section {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+  background-color: var(--primary-dark);
+}
+
+.refresh-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* CPolar配置区域样式 */
+.cpolar-authtoken-section {
+  background-color: var(--bg-primary);
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.cpolar-authtoken-section h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.cpolar-info {
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.cpolar-info ol {
+  padding-left: 20px;
+  margin-top: 8px;
+}
+
+.cpolar-info li {
+  margin-bottom: 8px;
+}
+
+.external-link {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.external-link:hover {
+  text-decoration: underline;
+}
+
+/* CPolar Authtoken输入区域样式 */
+.authtoken-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-group label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.authtoken-input {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  transition: all 0.3s ease;
+}
+
+.authtoken-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+}
+
+.authtoken-save-btn {
+  align-self: flex-start;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+}
+
+/* 适配深色主题 */
+.dark .authtoken-input {
+  background-color: #2d2d2d;
+  color: white;
+  border-color: #444;
+}
+
+.dark .authtoken-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
 }
 </style>

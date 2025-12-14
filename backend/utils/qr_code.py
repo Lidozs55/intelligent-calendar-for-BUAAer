@@ -204,3 +204,113 @@ class QRCodeGenerator:
             'qr_code': qr_code,
             'troubleshooting': troubleshooting
         }
+    
+    @classmethod
+    def restart_cpolar_service(cls):
+        """
+        重启cpolar服务
+        """
+        try:
+            import platform
+            import subprocess
+            import os
+            import pathlib
+            
+            # 首先检查cpolar.exe的可能路径
+            cpolar_path = None
+            
+            current_dir = pathlib.Path(__file__).parent.parent
+            
+            # 明确指定优先使用./cpolar/cpolar.exe路径
+            if platform.system() == 'Windows':
+                # Windows系统，优先使用./cpolar/cpolar.exe
+                preferred_path = os.path.join(current_dir, 'cpolar', 'cpolar.exe')
+                backup_path = os.path.join(current_dir, 'cpolar.exe')
+            else:
+                # Linux/Mac系统，优先使用./cpolar/cpolar
+                preferred_path = os.path.join(current_dir, 'cpolar', 'cpolar')
+                backup_path = os.path.join(current_dir, 'cpolar')
+            
+            # 先检查优先路径
+            if os.path.exists(preferred_path):
+                # 检查是否有执行权限
+                if platform.system() == 'Windows' or os.access(preferred_path, os.X_OK):
+                    cpolar_path = preferred_path
+            # 如果优先路径不存在，检查备份路径
+            elif os.path.exists(backup_path):
+                if platform.system() == 'Windows' or os.access(backup_path, os.X_OK):
+                    cpolar_path = backup_path
+            
+            # 如果找到cpolar_path，使用它；否则尝试使用环境变量中的cpolar命令
+            if cpolar_path:
+                cmd = [cpolar_path, 'restart']
+            else:
+                cmd = ['cpolar', 'restart']
+            
+            # 执行重启命令
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            print(f"[QRCode] 重启cpolar服务结果: {result.stdout.strip()}")
+            if result.stderr:
+                print(f"[QRCode] 重启cpolar服务错误: {result.stderr.strip()}")
+            
+            # 清除当前cpolar_url，触发重新获取
+            cls.current_cpolar_url = None
+            
+            # 立即刷新一次cpolar域名
+            cls.refresh_cpolar_url_once()
+            
+        except subprocess.TimeoutExpired:
+            print("[QRCode] 重启cpolar服务超时")
+        except Exception as e:
+            print(f"[QRCode] 重启cpolar服务失败: {str(e)}")
+    
+    @classmethod
+    def refresh_cpolar_url_once(cls):
+        """
+        立即刷新一次cpolar域名
+        """
+        try:
+            # 尝试获取最新的cpolar隧道信息
+            response = requests.get(cls.CPOLAR_API, timeout=5)
+            
+            if response.status_code == 200:
+                # 先尝试直接解析JSON
+                try:
+                    tunnels_data = response.json()
+                    
+                    # 处理不同的响应格式
+                    tunnel_list = []
+                    if isinstance(tunnels_data, dict):
+                        if 'tunnels' in tunnels_data:
+                            # 格式1: {"tunnels": [...], ...}
+                            tunnel_list = tunnels_data['tunnels']
+                        elif 'url' in tunnels_data and 'proto' in tunnels_data:
+                            # 格式2: 直接返回单个隧道信息
+                            tunnel_list = [tunnels_data]
+                    elif isinstance(tunnels_data, list):
+                        # 格式3: 直接返回隧道列表
+                        tunnel_list = tunnels_data
+                    
+                    # 找到HTTP隧道
+                    for tunnel in tunnel_list:
+                        if isinstance(tunnel, dict):
+                            proto = tunnel.get('proto', '')
+                            url = tunnel.get('url', '')
+                            if proto == 'http' and url:
+                                # 提取完整URL（包括http://）
+                                cls.current_cpolar_url = url
+                                print(f"[QRCode] 已更新cpolar域名: {cls.current_cpolar_url}")
+                                break
+                except json.JSONDecodeError as e:
+                    # 尝试使用正则表达式直接从响应中提取URL
+                    import re
+                    url_pattern = r'http://[a-zA-Z0-9.-]+\.cpolar\.io'
+                    match = re.search(url_pattern, response.text)
+                    if match:
+                        url = match.group(0)
+                        cls.current_cpolar_url = url
+                        print(f"[QRCode] 使用正则表达式提取到cpolar域名: {url}")
+        except requests.exceptions.ConnectionError:
+            print(f"[QRCode] 无法连接到cpolar API，可能服务未启动")
+        except Exception as e:
+            print(f"[QRCode] 刷新cpolar域名失败: {str(e)[:50]}...")

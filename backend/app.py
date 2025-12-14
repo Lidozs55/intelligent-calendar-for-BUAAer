@@ -206,6 +206,58 @@ def create_app(config_class=Config):
             'data': access_info
         }, 200
     
+    # 设置CPolar authtoken的API端点
+    @app.route('/api/mobile/set_cpolar_authtoken', methods=['POST'])
+    def set_cpolar_authtoken():
+        from flask import request
+        import json
+        
+        try:
+            # 获取请求数据
+            data = request.get_json()
+            authtoken = data.get('authtoken')
+            
+            if not authtoken:
+                return {
+                    'success': False,
+                    'message': '请提供CPolar Authtoken'
+                }, 400
+            
+            # 保存authtoken到配置文件或环境变量
+            import platform
+            if platform.system() == 'Windows':
+                # Windows系统，保存到cpolar配置目录
+                import pathlib
+                cpolar_config_dir = pathlib.Path.home() / '.cpolar'
+                cpolar_config_dir.mkdir(exist_ok=True)
+                
+                # 创建或更新authtoken文件
+                authtoken_file = cpolar_config_dir / 'authtoken'
+                authtoken_file.write_text(authtoken, encoding='utf-8')
+            else:
+                # Linux/Mac系统，保存到~/.cpolar/authtoken
+                import os
+                cpolar_config_dir = os.path.expanduser('~/.cpolar')
+                os.makedirs(cpolar_config_dir, exist_ok=True)
+                
+                authtoken_file = os.path.join(cpolar_config_dir, 'authtoken')
+                with open(authtoken_file, 'w', encoding='utf-8') as f:
+                    f.write(authtoken)
+            
+            # 重启cpolar服务
+            from utils.qr_code import QRCodeGenerator
+            QRCodeGenerator.restart_cpolar_service()
+            
+            return {
+                'success': True,
+                'message': 'CPolar Authtoken保存成功'
+            }, 200
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'保存CPolar Authtoken失败: {str(e)}'
+            }, 500
+    
     return app
 
 
