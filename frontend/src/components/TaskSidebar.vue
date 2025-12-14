@@ -2,14 +2,20 @@
   <div class="task-sidebar">
   <div class="sidebar-header">
     <h2>任务管理</h2>
-    <button class="quadrant-btn" @click="toggleQuadrantView" title="{{ isQuadrantView ? '返回日历视图' : '四象限视图' }}" :class="{ 'active': isQuadrantView }">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button class="quadrant-btn" @click="toggleQuadrantView" :class="{ 'active': isQuadrantView }">
+      <svg v-if="!isQuadrantView" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="12" y1="3" x2="12" y2="21"></line>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+      </svg>
+      <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
         <rect x="3" y="3" width="7" height="7"></rect>
         <rect x="14" y="3" width="7" height="7"></rect>
         <rect x="14" y="14" width="7" height="7"></rect>
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>
-      <span class="btn-text">{{ isQuadrantView ? '返回' : '四象限' }}</span>
+      <span v-if="!isQuadrantView" class="btn-text">四象限视图</span>
+      <span v-else class="btn-text">列表视图</span>
     </button>
   </div>
   
@@ -289,19 +295,12 @@ const loadTasks = async () => {
   try {
     // 从API获取所有任务（包括已完成和未完成）
     const response = await tasksAPI.getTasks(null)
-    console.log('API返回的任务数据:', response)
     
     // 确保response.tasks是数组
     const tasks = Array.isArray(response.tasks) ? response.tasks : []
-    console.log('处理后的任务数据:', tasks)
     
     // 更新任务状态
     taskStore.setTasks(tasks)
-    console.log('更新后的taskStore状态:', {
-      tasks: taskStore.tasks,
-      completedTasks: taskStore.completedTasks,
-      totalTasks: taskStore.tasks.length + taskStore.completedTasks.length
-    })
   } catch (err) {
     console.error('加载任务失败:', err)
     taskStore.setError(err.message || '加载任务失败')
@@ -458,20 +457,6 @@ const closeTaskModal = () => {
   }
 }
 
-// 四象限视图状态
-const isQuadrantView = ref(false)
-
-// 切换四象限视图
-const toggleQuadrantView = () => {
-  isQuadrantView.value = !isQuadrantView.value
-  // 触发事件，通知父组件切换视图
-  if (isQuadrantView.value) {
-    emit('open-quadrant-view')
-  } else {
-    emit('close-quadrant-view')
-  }
-}
-
 // 格式化日期
 const formatDate = (dateString) => {
   const date = new Date(dateString)
@@ -528,13 +513,27 @@ const startFocus = (task) => {
   })
 }
 
+// 四象限视图状态
+const isQuadrantView = ref(false)
+
+// 切换四象限视图
+const toggleQuadrantView = () => {
+  isQuadrantView.value = !isQuadrantView.value
+  // 触发事件，通知父组件切换视图
+  if (isQuadrantView.value) {
+    emit('open-quadrant-view')
+  } else {
+    emit('close-quadrant-view')
+  }
+}
+
 // 初始化加载任务
 onMounted(() => {
   loadTasks()
 })
 
 // 定义组件的事件
-const emit = defineEmits(['add-task', 'start-focus', 'open-quadrant-view', 'close-quadrant-view', 'llm-entries-created'])
+const emit = defineEmits(['add-task', 'start-focus', 'llm-entries-created', 'open-quadrant-view', 'close-quadrant-view'])
 </script>
 
 <style scoped>
@@ -562,7 +561,7 @@ const emit = defineEmits(['add-task', 'start-focus', 'open-quadrant-view', 'clos
   background: none;
   border: none;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.875rem;
   cursor: pointer;
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
@@ -583,18 +582,14 @@ const emit = defineEmits(['add-task', 'start-focus', 'open-quadrant-view', 'clos
   color: white;
 }
 
-.quadrant-btn.active:hover {
-  background-color: var(--primary-dark);
-  transform: none;
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
 }
 
-.quadrant-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.quadrant-btn .btn-text {
-  font-size: 0.9rem;
+.btn-text {
+  font-size: 0.875rem;
   font-weight: 500;
 }
 

@@ -180,13 +180,13 @@ const getTaskStyle = (task) => {
   const height = 100
   
   // 纵坐标：直接使用整数priority作为纵坐标值
-  let y = task.priority-10
+  let y = task.priority-30
 
   if(y<0){
     y=0
   }
-  if(y>480){
-    y=480
+  if(y>400){
+    y=400
   }
   
 
@@ -268,7 +268,7 @@ const getPriorityLabel = (priority) => {
   if (typeof priority === 'number') {
     if (priority <= 80) {
       return '高'
-    } else if (priority <= 240) {
+    } else if (priority <= 200) {
       return '中'
     } else {
       return '低'
@@ -374,12 +374,13 @@ onUnmounted(() => {
 .quadrant-grid {
   position: relative;
   width: 100%;
-  height: calc(100% - 60px); /* 减去操作按钮的高度 */
+  height: calc(100% - 80px); /* 减去操作按钮的高度和额外的边距 */
   margin: 0;
   background-color: white;
   border: 1px solid #ddd;
   border-radius: 8px;
-  overflow: auto;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .quadrant-labels {
@@ -388,6 +389,8 @@ onUnmounted(() => {
   height: 100%;
   pointer-events: none;
   z-index: 10;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .top-label, .bottom-label {
@@ -399,33 +402,35 @@ onUnmounted(() => {
   padding: 5px 10px;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
 
 .top-label {
-  top: -20px;
+  top: 10px;
 }
 
 .bottom-label {
-  bottom: -20px;
+  bottom: 10px;
 }
 
 .left-label, .right-label {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) rotate(-90deg);
   font-weight: bold;
   background-color: white;
   padding: 5px 10px;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
 
 .left-label {
-  left: -60px;
+  left: 20px;
 }
 
 .right-label {
-  right: -40px;
+  right: 20px;
 }
 
 /* 视觉分隔线 */

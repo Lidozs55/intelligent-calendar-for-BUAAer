@@ -2,6 +2,8 @@ from flask import Flask, send_from_directory, render_template_string
 from flask_cors import CORS
 import os
 import pathlib
+import subprocess
+import platform
 
 # 设置当前工作目录
 current_dir = pathlib.Path(__file__).parent
@@ -14,6 +16,77 @@ sys.path.append(str(current_dir))
 # 现在导入本地模块
 from config import Config
 from extensions import db
+
+
+def start_cpolar_service():
+    """
+    启动cpolar隧道服务
+    """
+    try:
+        # 首先检查cpolar.exe的可能路径
+        cpolar_path = None
+        
+        # 明确指定优先使用./cpolar/cpolar.exe路径
+        if platform.system() == 'Windows':
+            # Windows系统，优先使用./cpolar/cpolar.exe
+            preferred_path = os.path.join(current_dir, 'cpolar', 'cpolar.exe')
+            backup_path = os.path.join(current_dir, 'cpolar.exe')
+        else:
+            # Linux/Mac系统，优先使用./cpolar/cpolar
+            preferred_path = os.path.join(current_dir, 'cpolar', 'cpolar')
+            backup_path = os.path.join(current_dir, 'cpolar')
+        
+        # 先检查优先路径
+        if os.path.exists(preferred_path):
+            # 检查是否有执行权限
+            if platform.system() == 'Windows' or os.access(preferred_path, os.X_OK):
+                cpolar_path = preferred_path
+        # 如果优先路径不存在，检查备份路径
+        elif os.path.exists(backup_path):
+            if platform.system() == 'Windows' or os.access(backup_path, os.X_OK):
+                cpolar_path = backup_path
+        
+        # 如果找到cpolar_path，直接使用它；否则尝试使用环境变量中的cpolar命令
+        if cpolar_path:
+            # 启动cpolar服务，不创建新窗口，直接在后台运行
+            start_cmd = [cpolar_path, 'http', '5000']
+            
+            # 直接启动子进程，不使用shell=True（Windows）或nohup（Linux）
+            # 设置stdout和stderr为DEVNULL，避免输出干扰主进程
+            with open(os.devnull, 'w') as devnull:
+                subprocess.Popen(
+                    start_cmd,
+                    stdout=devnull,
+                    stderr=devnull,
+                    stdin=subprocess.PIPE,
+                    creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0,
+                    cwd=str(current_dir)
+                )
+            
+            print(f"[CPolar] 已启动cpolar服务，使用路径：{cpolar_path}")
+        else:
+            # 尝试使用环境变量中的cpolar命令
+            try:
+                # 启动cpolar服务，不创建新窗口
+                start_cmd = ['cpolar', 'http', '5000']
+                
+                with open(os.devnull, 'w') as devnull:
+                    subprocess.Popen(
+                        start_cmd,
+                        stdout=devnull,
+                        stderr=devnull,
+                        stdin=subprocess.PIPE,
+                        creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0,
+                        cwd=str(current_dir)
+                    )
+                
+                print("[CPolar] 已使用环境变量中的cpolar命令启动服务")
+            except Exception:
+                # 不打印详细错误，只显示简洁提示
+                print("[CPolar] 未找到cpolar可执行文件，您可以手动启动：cpolar http 5000")
+    except Exception as e:
+        # 只打印关键错误信息
+        print(f"[CPolar] 启动cpolar服务失败：{str(e)[:50]}...")
 
 
 def create_app(config_class=Config):
@@ -55,6 +128,16 @@ def create_app(config_class=Config):
     # 创建数据库表
     with app.app_context():
         db.create_all()
+    
+    # 启动cpolar服务（异步，不阻塞其他初始化）
+    import threading
+    cpolar_thread = threading.Thread(target=start_cpolar_service)
+    cpolar_thread.daemon = True
+    cpolar_thread.start()
+    
+    # 立即启动cpolar域名自动刷新线程（它会自己处理延迟）
+    from utils.qr_code import QRCodeGenerator
+    QRCodeGenerator.start_cpolar_refresh()
     
     # 配置静态文件服务
     # 检查是否运行在PyInstaller打包的exe环境中
@@ -98,6 +181,30 @@ def create_app(config_class=Config):
             with open(index_path, 'r', encoding='utf-8') as f:
                 return f.read()
         return 'Frontend not built', 500
+    
+    # 手机端路由
+    @app.route('/mobile')
+    @app.route('/mobile/<path:path>')
+    def serve_mobile(path=''):
+        # 读取并返回移动端index.html
+        index_path = frontend_dist / 'index.html'
+        if index_path.exists():
+            with open(index_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        return 'Frontend not built', 500
+    
+    # 服务发现API - 返回手机访问信息
+    @app.route('/api/mobile/info')
+    def mobile_info():
+        from utils.qr_code import QRCodeGenerator
+        
+        # 获取手机访问信息
+        access_info = QRCodeGenerator.get_mobile_access_info(port=5000)
+        
+        return {
+            'success': True,
+            'data': access_info
+        }, 200
     
     return app
 

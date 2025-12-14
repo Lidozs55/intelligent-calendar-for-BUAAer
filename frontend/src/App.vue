@@ -1,7 +1,11 @@
 <template>
   <div class="app-container" :class="theme" :style="appStyle">
-    <!-- 根据当前页面显示不同内容 -->
-    <template v-if="currentPage === 'home'">
+    <!-- 移动端页面 -->
+    <template v-if="isMobilePage">
+      <MobileHome />
+    </template>
+    <!-- 桌面端页面 -->
+    <template v-else-if="currentPage === 'home'">
       <header class="app-header">
         <div class="header-left">
           <h1>智能日程助手 - 北航版</h1>
@@ -17,6 +21,14 @@
           </div>
         </div>
         <div class="header-actions">
+          
+          <!-- 在手机打开按钮 -->
+          <button @click="togglePhoneQRCode" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
+            <span class="btn-icon">
+              <img src="/svg/phone.svg" alt="在手机打开" class="btn-svg-icon">
+            </span>
+            <span class="btn-text" :class="{ 'hidden-text': !showButtonText }">在手机打开</span>
+          </button>
           
           <button @click="goToSmartInput" class="header-btn compact-btn" :class="{ 'btn-compact': !showButtonText }">
             <span class="btn-icon">
@@ -161,6 +173,63 @@
       
       <!-- 专注模式组件 -->
       <FocusMode ref="focusModeRef" />
+      
+      <!-- 手机端二维码弹窗 -->
+      <div v-if="showPhoneQRCode" class="settings-overlay" @click="togglePhoneQRCode">
+        <div class="settings-panel" @click.stop>
+          <div class="phone-qr-content">
+            <h2>在手机打开</h2>
+            <div class="qr-code-section">
+                <div class="qr-code-container">
+                  <img v-if="phoneQRCodeData && mobileAccessInfo?.cpolar_status === 'available'" :src="phoneQRCodeData" alt="手机访问二维码" class="qr-code-image">
+                  <div v-else-if="mobileAccessInfo?.cpolar_status === 'unavailable'" class="qr-error">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-message">
+                      <h3>cpolar服务未正确启动</h3>
+                      <p>请检查：</p>
+                      <ul>
+                        <li>cpolar软件是否已正确安装</li>
+                        <li>是否有其他程序占用4040端口</li>
+                        <li>尝试手动启动cpolar：cpolar http 5000</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div v-else class="qr-loading">加载二维码中...</div>
+                </div>
+                <div class="qr-info">
+                  <p><strong>连接说明：</strong></p>
+                  <ul>
+                    <li v-if="mobileAccessInfo?.cpolar_status === 'available'">扫描上方二维码打开日历</li>
+                    <li>或直接访问：<span class="access-url">{{ mobileAccessInfo?.mobile_url || '' }}</span></li>
+                    <li v-if="mobileAccessInfo?.cpolar_status === 'unavailable'" class="cpolar-warning">
+                      <strong>注意：</strong>cpolar服务未正确启动，当前使用本地地址
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div class="connection-details">
+                <h3>连接信息</h3>
+                <p><strong>本地IP:</strong> {{ mobileAccessInfo?.local_ip || '获取中...' }}</p>
+                <p><strong>端口:</strong> {{ mobileAccessInfo?.port || '5000' }}</p>
+                <p><strong>cpolar状态:</strong> 
+                  <span :class="{ 
+                    'cpolar-status-available': mobileAccessInfo?.cpolar_status === 'available',
+                    'cpolar-status-unavailable': mobileAccessInfo?.cpolar_status === 'unavailable'
+                  }">
+                    {{ mobileAccessInfo?.cpolar_status === 'available' ? '可用' : '未可用' }}
+                  </span>
+                </p>
+                <p><strong>访问地址:</strong> {{ mobileAccessInfo?.mobile_url || '' }}</p>
+                <p v-if="mobileAccessInfo?.cpolar_url" class="cpolar-url-info">
+                  <strong>cpolar域名:</strong> {{ mobileAccessInfo?.cpolar_url }}
+                </p>
+              </div>
+            <div class="help-actions">
+              <button @click="togglePhoneQRCode" class="save-btn">关闭</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
     
     <!-- 智能输入页面 -->
@@ -178,6 +247,7 @@ import TaskSidebar from './components/TaskSidebar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import FocusMode from './components/FocusMode.vue'
 import QuadrantView from './components/QuadrantView.vue'
+import MobileHome from './pages/MobileHome.vue'
 import { useUserStore, useTaskStore, useCourseStore, useSettingsStore, useClipboardStore } from './store'
 import notificationService from './services/notification'
 import { remindersAPI } from './services/api'
@@ -189,6 +259,24 @@ const showSettings = ref(false)
 const showHelp = ref(false)
 const focusModeRef = ref(null)
 const homeRef = ref(null)
+
+// 手机端二维码状态
+const showPhoneQRCode = ref(false)
+const phoneQRCodeData = ref(null)
+const mobileAccessInfo = ref(null)
+
+// 判断是否为移动端页面
+const isMobilePage = ref(false)
+
+// 检查当前URL路径，判断是否为移动端页面
+const checkIfMobilePage = () => {
+  const path = window.location.pathname
+  isMobilePage.value = path.startsWith('/mobile')
+}
+
+// 监听URL变化
+window.addEventListener('popstate', checkIfMobilePage)
+window.addEventListener('hashchange', checkIfMobilePage)
 const userStore = useUserStore()
 const taskStore = useTaskStore()
 const courseStore = useCourseStore()
@@ -477,6 +565,28 @@ const toggleHelp = () => {
   showHelp.value = !showHelp.value
 }
 
+// 切换手机端二维码显示
+const togglePhoneQRCode = async () => {
+  showPhoneQRCode.value = !showPhoneQRCode.value
+  if (showPhoneQRCode.value) {
+    await fetchMobileAccessInfo()
+  }
+}
+
+// 获取手机访问信息和二维码
+const fetchMobileAccessInfo = async () => {
+  try {
+    const response = await fetch('/api/mobile/info')
+    const data = await response.json()
+    if (data.success) {
+      mobileAccessInfo.value = data.data
+      phoneQRCodeData.value = data.data.qr_code
+    }
+  } catch (error) {
+    console.error('获取手机访问信息失败:', error)
+  }
+}
+
 // 进入专注模式
 const enterFocusMode = () => {
   focusModeRef.value.openFocusMode()
@@ -536,6 +646,9 @@ const initNotifications = async () => {
 
 // 初始化用户信息，设置默认的buaaId用于测试
 onMounted(() => {
+  // 检查是否为移动端页面
+  checkIfMobilePage()
+  
   // 初始化通知服务
   initNotifications()
   
@@ -1093,5 +1206,186 @@ p, span, div, button {
 
 .save-btn:hover {
   background-color: var(--primary-dark);
+}
+
+/* 手机端二维码弹窗样式 */
+.phone-qr-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.qr-code-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .qr-code-section {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+  }
+}
+
+.qr-code-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 250px;
+  height: 250px;
+  background-color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.qr-loading {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.qr-info {
+  flex: 1;
+  min-width: 200px;
+  background-color: var(--bg-primary);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.qr-info ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.qr-info li {
+  margin-bottom: 0.75rem;
+}
+
+.access-url {
+  font-family: 'Courier New', Courier, monospace;
+  word-break: break-all;
+  background-color: rgba(74, 144, 226, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: var(--primary-color);
+}
+
+.connection-details {
+  background-color: var(--bg-primary);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.connection-details h3 {
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.connection-details p {
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.connection-details strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* cpolar服务状态样式 */
+.cpolar-status-available {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.cpolar-status-unavailable {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.cpolar-url-info {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: rgba(76, 175, 80, 0.1);
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.75rem !important;
+  word-break: break-all;
+}
+
+.cpolar-warning {
+  color: #ff9800;
+  font-weight: bold;
+}
+
+/* 二维码错误状态样式 */
+.qr-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background-color: rgba(244, 67, 54, 0.1);
+  border-radius: 8px;
+  text-align: center;
+  color: #f44336;
+}
+
+.error-icon {
+  font-size: 2.5rem;
+}
+
+.error-message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+  max-width: 300px;
+}
+
+.error-message h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.error-message p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.error-message ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.error-message li {
+  margin-bottom: 0.5rem;
+}
+
+/* 适配深色主题 */
+.dark .cpolar-url-info {
+  background-color: rgba(76, 175, 80, 0.2);
+}
+
+.dark .qr-error {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #ff5252;
 }
 </style>

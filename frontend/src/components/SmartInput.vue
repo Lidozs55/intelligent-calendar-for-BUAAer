@@ -4,11 +4,17 @@
       <h2 class="input-title">智能输入</h2>
       <div class="input-toolbar">
         <button @click="toggleVoiceInput" :class="['tool-btn', { active: isVoiceInputActive }]">
-          <span v-if="!isVoiceInputActive">🎤 语音</span>
-          <span v-else>⏹️ 停止</span>
+          <div class="voice-icon-container">
+            <img v-if="!isVoiceInputActive" src="/svg/microphone.svg" alt="语音" class="icon" />
+            <svg v-else class="icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"></path>
+            </svg>
+          </div>
+          <span class="tool-btn-text">{{ isVoiceInputActive ? '停止' : '语音' }}</span>
         </button>
         <button @click="triggerFileInput" class="tool-btn">
-          📷 图片
+          <img src="/svg/image.svg" alt="图片" class="icon" />
+          <span class="tool-btn-text">图片</span>
         </button>
         <input 
           ref="fileInput" 
@@ -18,7 +24,8 @@
           @change="handleImageUpload"
         />
         <button @click="checkClipboard" class="tool-btn">
-          📋 粘贴
+          <img src="/svg/paste.svg" alt="粘贴" class="icon" />
+          <span class="tool-btn-text">粘贴</span>
         </button>
       </div>
     </div>
@@ -471,6 +478,21 @@ const clearParse = () => {
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.tool-btn-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .tool-btn:hover {

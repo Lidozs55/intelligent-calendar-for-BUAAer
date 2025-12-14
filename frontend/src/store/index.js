@@ -207,16 +207,19 @@ export const useTaskStore = defineStore('task', {
 // 设置状态管理
 export const useSettingsStore = defineStore('settings', {
   state: () => {
-    // 从localStorage读取设置，但强制使用浅色主题
+    // 从localStorage读取设置，支持浅色和深色主题
     const savedSettings = localStorage.getItem('appSettings')
     const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {}
+    
+    // 检测系统主题偏好
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     
     return {
       reminderSettings: {
         course: parsedSettings.reminderSettings?.course || 30, // 课程/讲座/会议提前30分钟提醒
         exam: parsedSettings.reminderSettings?.exam || [14, 60] // 考试提前14天复习提醒，提前1小时前往考场提醒
       },
-      theme: 'light', // 强制使用浅色主题
+      theme: parsedSettings.theme || systemTheme, // 优先使用保存的主题，否则使用系统主题
       energyCycle: {
         morning: parsedSettings.energyCycle?.morning || 'high',
         afternoon: parsedSettings.energyCycle?.afternoon || 'medium',
