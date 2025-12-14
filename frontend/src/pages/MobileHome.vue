@@ -102,7 +102,7 @@ const activeTab = ref('calendar')
   height: 100vh;
   max-width: 600px;
   margin: 0 auto;
-  background-color: #f5f5f5;
+  background-color: var(--bg-primary);
   position: relative;
 }
 
@@ -111,7 +111,7 @@ const activeTab = ref('calendar')
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background-color: white;
+  background-color: var(--bg-primary);
   position: relative;
 }
 
@@ -126,15 +126,15 @@ const activeTab = ref('calendar')
   justify-content: space-around;
   align-items: center;
   height: 60px;
-  background-color: white;
-  border-top: 1px solid #e0e0e0;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
   position: fixed;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
   max-width: 600px;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -2px 10px var(--shadow-color);
 }
 
 /* 标签项 */
@@ -146,7 +146,7 @@ const activeTab = ref('calendar')
   flex: 1;
   height: 100%;
   cursor: pointer;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.3s ease;
 }
 
@@ -159,6 +159,23 @@ const activeTab = ref('calendar')
 .tab-item span {
   font-size: 12px;
   margin-top: 4px;
+  color: inherit;
+}
+
+/* SVG图标颜色处理 */
+.tab-item svg {
+  fill: none;
+  stroke: currentColor;
+  transition: all 0.3s ease;
+}
+
+/* 黑夜模式下的特殊处理 */
+:deep(.dark) .tab-item svg {
+  stroke: var(--text-secondary);
+}
+
+:deep(.dark) .tab-item.active svg {
+  stroke: var(--primary-color);
 }
 
 /* 响应式设计 */

@@ -241,7 +241,7 @@ onMounted(() => {
 }
 
 .connection-details {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   padding: 12px;
   display: flex;
@@ -309,7 +309,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: var(--border-color);
   transition: .4s;
   border-radius: 24px;
 }
@@ -321,7 +321,7 @@ onMounted(() => {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--bg-secondary);
   transition: .4s;
   border-radius: 50%;
 }

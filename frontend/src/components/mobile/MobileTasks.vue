@@ -199,7 +199,7 @@ onMounted(() => {
 
 /* 章节 */
 .section {
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   padding: 16px;
 }
@@ -227,10 +227,10 @@ onMounted(() => {
 }
 
 .task-item {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px var(--shadow-color);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -239,7 +239,7 @@ onMounted(() => {
 
 .task-item:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 5px var(--shadow-color);
 }
 
 .task-item.completed {
@@ -294,14 +294,14 @@ onMounted(() => {
 }
 
 .detail-content {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   padding: 20px;
   max-width: 400px;
   width: 100%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px var(--shadow-color);
 }
 
 .detail-content h3 {

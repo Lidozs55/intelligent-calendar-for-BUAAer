@@ -409,8 +409,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 12px 8px;
-  background-color: #f5f5f5;
-  border: none;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -418,18 +418,49 @@ onMounted(() => {
 }
 
 .tool-btn:hover {
-  background-color: #e8e8e8;
+  background-color: var(--button-hover);
 }
 
 .tool-btn.active {
   background-color: var(--primary-color);
   color: white;
+  border-color: var(--primary-color);
 }
 
 .icon {
   width: 24px;
   height: 24px;
   margin-bottom: 4px;
+  transition: filter 0.3s ease;
+}
+
+/* 黑夜模式下图标处理 */
+.dark .input-toolbar .icon {
+  filter: invert(1);
+}
+
+/* 语音图标容器内的图标特殊处理 */
+.dark .voice-icon-container .icon {
+  filter: invert(1);
+}
+
+/* 内联SVG颜色处理 */
+.dark .voice-icon-container svg.icon {
+  filter: invert(0);
+  fill: white !important;
+  color: white !important;
+}
+
+/* 确保按钮激活状态下图标显示正确 */
+.dark .tool-btn.active .icon {
+  filter: invert(1);
+}
+
+/* 激活状态下的内联SVG处理 */
+.dark .tool-btn.active svg.icon {
+  filter: invert(0) !important;
+  fill: white !important;
+  color: white !important;
 }
 
 .tool-btn-text {
@@ -445,7 +476,7 @@ onMounted(() => {
 .input-area textarea {
   width: 100%;
   padding: 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 15px;
   font-family: inherit;
@@ -453,6 +484,8 @@ onMounted(() => {
   min-height: 150px;
   line-height: 1.5;
   box-sizing: border-box;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .input-area textarea:focus {
@@ -495,7 +528,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding-top: 12px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color);
 }
 
 .input-stats {
@@ -520,7 +553,8 @@ onMounted(() => {
 }
 
 .submit-btn:disabled {
-  background-color: #cccccc;
+  background-color: var(--border-color);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -566,7 +600,7 @@ onMounted(() => {
 }
 
 .parse-preview {
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   padding: 16px;
   margin-top: 16px;
@@ -587,11 +621,11 @@ onMounted(() => {
 }
 
 .preview-section {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   padding: 12px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px var(--shadow-color);
 }
 
 .preview-list {
@@ -601,7 +635,7 @@ onMounted(() => {
 }
 
 .preview-item {
-  background-color: #f5f5f5;
+  background-color: var(--bg-primary);
   border-radius: 6px;
   padding: 12px;
   border-left: 3px solid var(--primary-color);
@@ -677,12 +711,12 @@ onMounted(() => {
 }
 
 .clear-btn {
-  background-color: white;
-  border: 1px solid #e0e0e0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   color: var(--text-primary);
 }
 
 .clear-btn:hover {
-  background-color: #f5f5f5;
+  background-color: var(--button-hover);
 }
 </style>

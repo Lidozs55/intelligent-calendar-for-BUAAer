@@ -255,7 +255,10 @@ const getDayImportance = (day) => {
   const targetDate = new Date(currentYear.value, currentMonth.value, day)
   const dayEntries = currentMonthEntries.value.filter(entry => {
     const entryDate = new Date(entry.start_time)
-    return entryDate.getDate() === day
+    // 使用本地时间比较，确保日期匹配
+    return entryDate.getFullYear() === targetDate.getFullYear() &&
+           entryDate.getMonth() === targetDate.getMonth() &&
+           entryDate.getDate() === targetDate.getDate()
   })
   
   if (dayEntries.length === 0) return null
@@ -295,35 +298,61 @@ const selectDate = (day) => {
 
 // 获取当天日程条目
 const entries = computed(() => {
-  const dateStr = currentDate.value.toISOString().split('T')[0]
+  // 使用本地时间来比较，避免时区问题
+  const targetDate = new Date(currentDate.value)
+  const targetYear = targetDate.getFullYear()
+  const targetMonth = targetDate.getMonth()
+  const targetDay = targetDate.getDate()
+  
   return localEntries.value.filter(entry => {
     try {
       // 检查start_time是否有效
       if (!entry.start_time) return false
       
-      const entryDate = new Date(entry.start_time).toISOString().split('T')[0]
-      return entryDate === dateStr
+      const entryDate = new Date(entry.start_time)
+      // 比较年、月、日，使用本地时间
+      return entryDate.getFullYear() === targetYear &&
+             entryDate.getMonth() === targetMonth &&
+             entryDate.getDate() === targetDay
     } catch (error) {
       // 处理无效日期
       return false
     }
+  }).sort((a, b) => {
+    // 按开始时间升序排序
+    const timeA = new Date(a.start_time).getTime()
+    const timeB = new Date(b.start_time).getTime()
+    return timeA - timeB
   })
 })
 
 // 获取当天任务
 const tasks = computed(() => {
-  const dateStr = currentDate.value.toISOString().split('T')[0]
+  // 使用本地时间来比较，避免时区问题
+  const targetDate = new Date(currentDate.value)
+  const targetYear = targetDate.getFullYear()
+  const targetMonth = targetDate.getMonth()
+  const targetDay = targetDate.getDate()
+  
   return taskStore.tasks.filter(task => {
     try {
       // 检查deadline是否有效
       if (!task.deadline) return false
       
-      const taskDate = new Date(task.deadline).toISOString().split('T')[0]
-      return taskDate === dateStr
+      const taskDate = new Date(task.deadline)
+      // 比较年、月、日，使用本地时间
+      return taskDate.getFullYear() === targetYear &&
+             taskDate.getMonth() === targetMonth &&
+             taskDate.getDate() === targetDay
     } catch (error) {
       // 处理无效日期
       return false
     }
+  }).sort((a, b) => {
+    // 按截止时间升序排序
+    const timeA = new Date(a.deadline).getTime()
+    const timeB = new Date(b.deadline).getTime()
+    return timeA - timeB
   })
 })
 
@@ -425,7 +454,7 @@ watch(currentDate, () => {
 /* 基础样式 */
 .mobile-calendar {
   padding: 16px;
-  background-color: white;
+  background-color: var(--bg-primary);
   min-height: calc(100vh - 60px);
 }
 
@@ -436,7 +465,7 @@ watch(currentDate, () => {
   justify-content: space-between;
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .nav-btn {
@@ -485,7 +514,7 @@ watch(currentDate, () => {
 
 /* 章节 */
 .section {
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   padding: 16px;
 }
@@ -513,10 +542,10 @@ watch(currentDate, () => {
 }
 
 .course-item {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px var(--shadow-color);
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -559,10 +588,10 @@ watch(currentDate, () => {
 }
 
 .task-item {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px var(--shadow-color);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -616,14 +645,14 @@ watch(currentDate, () => {
 }
 
 .detail-content {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   padding: 20px;
   max-width: 400px;
   width: 100%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px var(--shadow-color);
 }
 
 .detail-content h3 {
@@ -717,8 +746,8 @@ watch(currentDate, () => {
 }
 
 .month-nav-btn {
-  background-color: white;
-  border: 1px solid #e0e0e0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
