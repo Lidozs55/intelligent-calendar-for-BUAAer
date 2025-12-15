@@ -24,64 +24,48 @@ def start_cpolar_service():
     启动cpolar隧道服务
     """
     try:
-        # 首先检查cpolar.exe的可能路径
-        cpolar_path = None
+        # 首先检查并杀死已存在的cpolar进程，防止并发会话数超过限制
+        if platform.system() == 'Windows':
+            # Windows系统，使用taskkill命令杀死cpolar进程
+            subprocess.run(['taskkill', '/f', '/im', 'cpolar.exe'], capture_output=True, text=True)
+            print("[CPolar] 已检查并杀死所有已存在的cpolar进程")
+        else:
+            # Linux/Mac系统，使用pkill命令杀死cpolar进程
+            subprocess.run(['pkill', '-f', 'cpolar'], capture_output=True, text=True)
+            print("[CPolar] 已检查并杀死所有已存在的cpolar进程")
         
         # 明确指定使用主文件夹下面的/cpolar/cpolar.exe路径
         if platform.system() == 'Windows':
             # Windows系统，使用主文件夹下的cpolar/cpolar.exe
-            preferred_path = os.path.join(main_dir, 'cpolar', 'cpolar.exe')
+            cpolar_path = os.path.join(main_dir, 'cpolar', 'cpolar.exe')
         else:
             # Linux/Mac系统，使用主文件夹下的cpolar/cpolar
-            preferred_path = os.path.join(main_dir, 'cpolar', 'cpolar')
+            cpolar_path = os.path.join(main_dir, 'cpolar', 'cpolar')
         
-        # 只检查主文件夹下的cpolar路径
-        if os.path.exists(preferred_path):
+        # 检查cpolar是否存在
+        if os.path.exists(cpolar_path):
             # 检查是否有执行权限
-            if platform.system() == 'Windows' or os.access(preferred_path, os.X_OK):
-                cpolar_path = preferred_path
-        
-        # 如果找到cpolar_path，直接使用它；否则尝试使用环境变量中的cpolar命令
-        if cpolar_path:
-            # 启动cpolar服务，不创建新窗口，直接在后台运行
-            start_cmd = [cpolar_path, 'http', '5000']
-            
-            # 直接启动子进程，不使用shell=True（Windows）或nohup（Linux）
-            # 设置stdout和stderr为DEVNULL，避免输出干扰主进程
-            with open(os.devnull, 'w') as devnull:
+            if platform.system() == 'Windows' or os.access(cpolar_path, os.X_OK):
+                # 启动cpolar服务，使用正确的命令：cpolar http 5000
+                # 在独立窗口中运行
                 subprocess.Popen(
-                    start_cmd,
-                    stdout=devnull,
-                    stderr=devnull,
-                    stdin=subprocess.PIPE,
-                    creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0,
+                    [cpolar_path, 'http', '5000'],
+                    stdout=None,
+                    stderr=None,
+                    stdin=None,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE if platform.system() == 'Windows' else 0,
                     cwd=str(current_dir)
                 )
-            
-            print(f"[CPolar] 已启动cpolar服务，使用路径：{cpolar_path}")
+                print(f"[CPolar] 已在独立窗口中启动cpolar服务")
+                print(f"[CPolar] 使用路径：{cpolar_path}")
+                print(f"[CPolar] 启动命令：cpolar http 5000")
+            else:
+                print(f"[CPolar] 没有cpolar的执行权限：{cpolar_path}")
         else:
-            # 尝试使用环境变量中的cpolar命令
-            try:
-                # 启动cpolar服务，不创建新窗口
-                start_cmd = ['cpolar', 'http', '5000']
-                
-                with open(os.devnull, 'w') as devnull:
-                    subprocess.Popen(
-                        start_cmd,
-                        stdout=devnull,
-                        stderr=devnull,
-                        stdin=subprocess.PIPE,
-                        creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0,
-                        cwd=str(current_dir)
-                    )
-                
-                print("[CPolar] 已使用环境变量中的cpolar命令启动服务")
-            except Exception:
-                # 不打印详细错误，只显示简洁提示
-                print("[CPolar] 未找到cpolar可执行文件，您可以手动启动：cpolar http 5000")
+            print(f"[CPolar] 未找到cpolar可执行文件：{cpolar_path}")
+            print(f"[CPolar] 您可以手动启动：cpolar http 5000")
     except Exception as e:
-        # 只打印关键错误信息
-        print(f"[CPolar] 启动cpolar服务失败：{str(e)[:50]}...")
+        print(f"[CPolar] 启动cpolar服务失败：{str(e)}")
 
 
 def create_app(config_class=Config):

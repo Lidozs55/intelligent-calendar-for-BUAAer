@@ -26,79 +26,70 @@ class QRCodeGenerator:
         启动cpolar域名自动刷新线程
         """
         def refresh_cpolar_url():
-            # 线程启动后，先等待8秒（5秒基础+3秒额外），给cpolar服务足够的启动时间
-            wait_time = 8  # 8秒等待，确保cpolar服务有足够时间启动
-            print(f"[QRCode] 线程已启动，等待{wait_time}秒后开始首次cpolar域名刷新...")
+            # 线程启动后，先等待10秒，给cpolar服务足够的启动时间
+            wait_time = 10
+            print(f"[QRCode] cpolar域名刷新线程已启动，等待{wait_time}秒后开始首次刷新...")
             time.sleep(wait_time)
             
             while True:
                 try:
-                    # 尝试获取最新的cpolar隧道信息
+                    # 尝试获取cpolar隧道信息
+                    print(f"[QRCode] 正在刷新cpolar域名...")
                     response = requests.get(cls.CPOLAR_API, timeout=5)
                     
                     if response.status_code == 200:
-                        # 先尝试直接解析JSON
                         try:
+                            # 尝试解析JSON响应
                             tunnels_data = response.json()
                             
                             # 处理不同的响应格式
-                            tunnel_list = []
+                            tunnels = []
                             if isinstance(tunnels_data, dict):
+                                # 格式1: {"tunnels": [...], ...}
                                 if 'tunnels' in tunnels_data:
-                                    # 格式1: {"tunnels": [...], ...}
-                                    tunnel_list = tunnels_data['tunnels']
-                                elif 'url' in tunnels_data and 'proto' in tunnels_data:
-                                    # 格式2: 直接返回单个隧道信息
-                                    tunnel_list = [tunnels_data]
+                                    tunnels = tunnels_data['tunnels']
                             elif isinstance(tunnels_data, list):
-                                # 格式3: 直接返回隧道列表
-                                tunnel_list = tunnels_data
+                                # 格式2: 直接返回隧道列表
+                                tunnels = tunnels_data
                             
-                            # 找到HTTP隧道
-                            for tunnel in tunnel_list:
+                            # 查找HTTP隧道
+                            for tunnel in tunnels:
                                 if isinstance(tunnel, dict):
-                                    proto = tunnel.get('proto', '')
+                                    proto = tunnel.get('proto', '').lower()
                                     url = tunnel.get('url', '')
                                     if proto == 'http' and url:
-                                        # 提取完整URL（包括http://）
+                                        # 找到HTTP隧道，更新cpolar域名
                                         cls.current_cpolar_url = url
                                         print(f"[QRCode] 已更新cpolar域名: {cls.current_cpolar_url}")
                                         break
-                        except json.JSONDecodeError as e:
-                            # 尝试使用正则表达式直接从响应中提取URL
+                        except json.JSONDecodeError:
+                            # JSON解析失败，尝试从HTML中提取URL
                             import re
                             url_pattern = r'http://[a-zA-Z0-9.-]+\.cpolar\.io'
                             match = re.search(url_pattern, response.text)
                             if match:
                                 url = match.group(0)
                                 cls.current_cpolar_url = url
-                                print(f"[QRCode] 使用正则表达式提取到cpolar域名: {url}")
+                                print(f"[QRCode] 已从HTML中提取cpolar域名: {cls.current_cpolar_url}")
                 except requests.exceptions.ConnectionError:
                     print(f"[QRCode] 无法连接到cpolar API，可能服务未启动")
                 except Exception as e:
-                    print(f"[QRCode] 刷新cpolar域名失败: {str(e)[:50]}...")
+                    print(f"[QRCode] 刷新cpolar域名失败: {str(e)}")
                 
-                # 等待指定间隔后再次刷新（5分钟）
+                # 等待指定间隔后再次刷新
                 time.sleep(cls.REFRESH_INTERVAL)
         
-        # 直接启动定时刷新线程，不执行第一次刷新（第一次刷新在线程内部进行）
-        # 这样不会阻塞其他初始化工作
+        # 启动刷新线程
         thread = threading.Thread(target=refresh_cpolar_url, daemon=True)
         thread.start()
-        print(f"[QRCode] cpolar域名刷新线程已启动，将每5分钟自动刷新一次")
     
     @staticmethod
     def get_local_ip():
         """
         获取本机在局域网中的IP地址
-        
-        Returns:
-            str: 局域网IP地址
         """
         try:
-            # 创建一个UDP socket，不实际连接
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            # 连接到一个公共的IP地址，这会让系统分配一个本地IP地址
             s.connect(('8.8.8.8', 80))
             local_ip = s.getsockname()[0]
             s.close()
@@ -111,31 +102,19 @@ class QRCodeGenerator:
     def generate_qr_code(url):
         """
         生成二维码图片
-        
-        Args:
-            url: 二维码指向的URL
-            output_path: 图片保存路径
-            
-        Returns:
-            str: 生成的二维码图片的Base64编码
         """
         try:
-            # 创建二维码实例
             qr = qrcode.QRCode(
                 version=1,
                 error_correction=qrcode.constants.ERROR_CORRECT_L,
                 box_size=10,
                 border=4,
             )
-            
-            # 添加数据
             qr.add_data(url)
             qr.make(fit=True)
             
-            # 创建图片
             img = qr.make_image(fill_color="black", back_color="white")
             
-            # 转换为Base64编码
             buffer = BytesIO()
             img.save(buffer, format="PNG")
             img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
@@ -149,19 +128,20 @@ class QRCodeGenerator:
     def get_mobile_access_info(cls, port=5000):
         """
         获取手机访问信息，包括IP地址和二维码
-        
-        Args:
-            port: 服务器端口
-            
-        Returns:
-            dict: 包含访问信息的字典
         """
         local_ip = cls.get_local_ip()
         
-        # 生成二维码和访问信息
-        mobile_url = None
+        # 生成访问地址
         local_mobile_url = f"http://{local_ip}:{port}/mobile"
-        cpolar_status = "available" if cls.current_cpolar_url else "unavailable"
+        mobile_url = local_mobile_url
+        cpolar_url = None
+        cpolar_status = "unavailable"
+        
+        # 如果有cpolar域名，优先使用
+        if cls.current_cpolar_url:
+            cpolar_url = cls.current_cpolar_url
+            mobile_url = f"{cpolar_url}/mobile"
+            cpolar_status = "available"
         
         # 生成故障排查信息
         troubleshooting = {
@@ -177,19 +157,8 @@ class QRCodeGenerator:
                 "2. 使用内网穿透工具（如ngrok、cpolar）",
                 "3. 修改后端端口为常用端口（如8080）"
             ],
-            "hotspot_guide": "电脑开启热点 → 手机连接 → 电脑获取热点IP → 手机访问该IP:5000/mobile"
+            "hotspot_guide": "电脑开启热点 → 手机连接热点 → 电脑获取热点IP → 手机访问该IP:5000/mobile"
         }
-        
-        # 使用动态刷新的cpolar公网地址（如果可用）
-        cpolar_url = cls.current_cpolar_url
-        if cpolar_url:
-            # 确保cpolar_url格式正确
-            if not cpolar_url.startswith(('http://', 'https://')):
-                cpolar_url = f"http://{cpolar_url}"
-            mobile_url = f"{cpolar_url}/mobile"
-        else:
-            # 如果没有cpolar地址，使用本地地址
-            mobile_url = local_mobile_url
         
         # 生成二维码
         qr_code = cls.generate_qr_code(mobile_url)
@@ -197,10 +166,10 @@ class QRCodeGenerator:
         return {
             'local_ip': local_ip,
             'port': port,
-            'mobile_url': mobile_url,  # 使用cpolar公网地址（如果可用）
-            'local_mobile_url': local_mobile_url,  # 本地访问地址（备用）
-            'cpolar_url': cpolar_url,  # cpolar公网地址
-            'cpolar_status': cpolar_status,  # cpolar服务状态
+            'mobile_url': mobile_url,
+            'local_mobile_url': local_mobile_url,
+            'cpolar_url': cpolar_url,
+            'cpolar_status': cpolar_status,
             'qr_code': qr_code,
             'troubleshooting': troubleshooting
         }
@@ -216,46 +185,39 @@ class QRCodeGenerator:
             import os
             import pathlib
             
-            # 首先检查cpolar.exe的可能路径
-            cpolar_path = None
-            
-            # 获取主文件夹路径（backend的父目录）
+            # 获取主文件夹路径
             main_dir = pathlib.Path(__file__).parent.parent.parent
             
-            # 明确指定使用主文件夹下面的/cpolar/cpolar.exe路径
+            # 构建cpolar路径
             if platform.system() == 'Windows':
-                # Windows系统，使用主文件夹下的cpolar/cpolar.exe
-                preferred_path = os.path.join(main_dir, 'cpolar', 'cpolar.exe')
+                cpolar_path = os.path.join(main_dir, 'cpolar', 'cpolar.exe')
             else:
-                # Linux/Mac系统，使用主文件夹下的cpolar/cpolar
-                preferred_path = os.path.join(main_dir, 'cpolar', 'cpolar')
+                cpolar_path = os.path.join(main_dir, 'cpolar', 'cpolar')
             
-            # 只检查主文件夹下的cpolar路径
-            if os.path.exists(preferred_path):
-                # 检查是否有执行权限
-                if platform.system() == 'Windows' or os.access(preferred_path, os.X_OK):
-                    cpolar_path = preferred_path
-            
-            # 如果找到cpolar_path，使用它；否则尝试使用环境变量中的cpolar命令
-            if cpolar_path:
-                cmd = [cpolar_path, 'restart']
+            # 检查cpolar是否存在
+            if os.path.exists(cpolar_path):
+                # 杀死所有已存在的cpolar进程
+                if platform.system() == 'Windows':
+                    subprocess.run(['taskkill', '/f', '/im', 'cpolar.exe'], capture_output=True, text=True)
+                else:
+                    subprocess.run(['pkill', '-f', 'cpolar'], capture_output=True, text=True)
+                
+                # 重新启动cpolar服务
+                subprocess.Popen(
+                    [cpolar_path, 'http', '5000'],
+                    stdout=None,
+                    stderr=None,
+                    stdin=None,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE if platform.system() == 'Windows' else 0,
+                    cwd=str(main_dir)
+                )
+                
+                print(f"[QRCode] 已重启cpolar服务")
+                
+                # 清除当前cpolar域名，触发重新获取
+                cls.current_cpolar_url = None
             else:
-                cmd = ['cpolar', 'restart']
-            
-            # 执行重启命令
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            print(f"[QRCode] 重启cpolar服务结果: {result.stdout.strip()}")
-            if result.stderr:
-                print(f"[QRCode] 重启cpolar服务错误: {result.stderr.strip()}")
-            
-            # 清除当前cpolar_url，触发重新获取
-            cls.current_cpolar_url = None
-            
-            # 立即刷新一次cpolar域名
-            cls.refresh_cpolar_url_once()
-            
-        except subprocess.TimeoutExpired:
-            print("[QRCode] 重启cpolar服务超时")
+                print(f"[QRCode] 未找到cpolar可执行文件: {cpolar_path}")
         except Exception as e:
             print(f"[QRCode] 重启cpolar服务失败: {str(e)}")
     
@@ -265,47 +227,44 @@ class QRCodeGenerator:
         立即刷新一次cpolar域名
         """
         try:
-            # 尝试获取最新的cpolar隧道信息
+            # 尝试获取cpolar隧道信息
             response = requests.get(cls.CPOLAR_API, timeout=5)
             
             if response.status_code == 200:
-                # 先尝试直接解析JSON
                 try:
+                    # 尝试解析JSON响应
                     tunnels_data = response.json()
                     
                     # 处理不同的响应格式
-                    tunnel_list = []
+                    tunnels = []
                     if isinstance(tunnels_data, dict):
+                        # 格式1: {"tunnels": [...], ...}
                         if 'tunnels' in tunnels_data:
-                            # 格式1: {"tunnels": [...], ...}
-                            tunnel_list = tunnels_data['tunnels']
-                        elif 'url' in tunnels_data and 'proto' in tunnels_data:
-                            # 格式2: 直接返回单个隧道信息
-                            tunnel_list = [tunnels_data]
+                            tunnels = tunnels_data['tunnels']
                     elif isinstance(tunnels_data, list):
-                        # 格式3: 直接返回隧道列表
-                        tunnel_list = tunnels_data
+                        # 格式2: 直接返回隧道列表
+                        tunnels = tunnels_data
                     
-                    # 找到HTTP隧道
-                    for tunnel in tunnel_list:
+                    # 查找HTTP隧道
+                    for tunnel in tunnels:
                         if isinstance(tunnel, dict):
-                            proto = tunnel.get('proto', '')
+                            proto = tunnel.get('proto', '').lower()
                             url = tunnel.get('url', '')
                             if proto == 'http' and url:
-                                # 提取完整URL（包括http://）
+                                # 找到HTTP隧道，更新cpolar域名
                                 cls.current_cpolar_url = url
                                 print(f"[QRCode] 已更新cpolar域名: {cls.current_cpolar_url}")
                                 break
-                except json.JSONDecodeError as e:
-                    # 尝试使用正则表达式直接从响应中提取URL
+                except json.JSONDecodeError:
+                    # JSON解析失败，尝试从HTML中提取URL
                     import re
                     url_pattern = r'http://[a-zA-Z0-9.-]+\.cpolar\.io'
                     match = re.search(url_pattern, response.text)
                     if match:
                         url = match.group(0)
                         cls.current_cpolar_url = url
-                        print(f"[QRCode] 使用正则表达式提取到cpolar域名: {url}")
+                        print(f"[QRCode] 已从HTML中提取cpolar域名: {cls.current_cpolar_url}")
         except requests.exceptions.ConnectionError:
             print(f"[QRCode] 无法连接到cpolar API，可能服务未启动")
         except Exception as e:
-            print(f"[QRCode] 刷新cpolar域名失败: {str(e)[:50]}...")
+            print(f"[QRCode] 刷新cpolar域名失败: {str(e)}")
