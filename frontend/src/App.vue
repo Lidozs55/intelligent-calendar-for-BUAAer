@@ -14,9 +14,16 @@
           </div>
           <!-- 提醒信息展示 -->
           <div v-if="showReminders" class="reminder-display">
-            <div class="reminder-item" :class="getReminderUrgencyClass(reminders[currentReminderIndex])">
-              <span class="reminder-title">{{ reminders[currentReminderIndex]?.title }}</span>
-              <span class="reminder-time">{{ formatReminderTime(reminders[currentReminderIndex]?.start_time) }}</span>
+            <div class="reminder-container" :style="{ transform: `translateY(-${currentReminderIndex * 100}%)` }">
+              <div 
+                v-for="(reminder, index) in reminders" 
+                :key="reminder.id"
+                class="reminder-item" 
+                :class="getReminderUrgencyClass(reminder)"
+              >
+                <span class="reminder-title">{{ reminder.title }}</span>
+                <span class="reminder-time">{{ formatReminderTime(reminder.start_time) }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1024,12 +1031,37 @@ p, span, div, button {
 /* 提醒信息样式 */
 .reminder-display {
   position: absolute;
-  left: 50%;
+  left: 45%;
   transform: translateX(-50%);
   bottom: 0.5rem;
   width: 100%;
   max-width: 400px;
   margin: 0;
+  height: 55px;
+  overflow: hidden;
+  top: 0.2rem;
+}
+
+/* 提醒容器样式，支持上下滚动 */
+.reminder-container {
+  position: relative;
+  transition: transform 0.5s ease-in-out;
+  height: 100%;
+}
+
+/* 单个提醒项样式 */
+.reminder-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  height: 50px;
+  box-sizing: border-box;
+  margin: 0;
+  margin-bottom: 0.5rem;
 }
 
 .header-actions {
