@@ -164,6 +164,30 @@
                 <li><strong>专注记录</strong>：系统会自动记录您的专注时长，并保存到后台</li>
               </ul>
             </div>
+            <div class="help-section">
+              <h3>手机端使用</h3>
+              <ul>
+                <li><strong>访问方式</strong>：点击右上角"在手机打开"按钮，扫描二维码或直接输入URL访问</li>
+                <li><strong>功能支持</strong>：
+                  <ul>
+                    <li>完整的课程管理功能</li>
+                    <li>任务创建和编辑</li>
+                    <li>智能输入功能</li>
+                    <li>日历视图查看</li>
+                    <li>设置面板</li>
+                  </ul>
+                </li>
+                <li><strong>深色模式</strong>：移动端支持浅色/深色主题自动切换，跟随系统设置</li>
+                <li><strong>响应式设计</strong>：自动适配不同手机屏幕尺寸</li>
+                <li><strong>连接说明</strong>：
+                  <ul>
+                    <li>确保手机和电脑在同一局域网</li>
+                    <li>cpolar服务正常运行可获得公网访问地址</li>
+                    <li>无cpolar时可使用本地IP访问</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
             <div class="help-actions">
               <button @click="toggleHelp" class="save-btn">关闭</button>
             </div>

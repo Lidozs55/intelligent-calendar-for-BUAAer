@@ -512,8 +512,6 @@ def sync_buaa_courses_by_date(date=None):
         return jsonify({
             "status": "success",
             "message": "课程表和考试信息同步成功", 
-            "courses": unique_courses, 
-            "exams": exam_data,
             "course_count": len(unique_courses),
             "exam_count": len(exam_data)
         }), 200

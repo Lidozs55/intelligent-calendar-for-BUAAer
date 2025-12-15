@@ -64,13 +64,20 @@
                 <span v-if="syncLoading">正在同步...</span>
                 <span v-else>同步课程表</span>
             </button>
+            <button type="button" class="sync-btn" @click="syncSpocHomeworks" :disabled="spocSyncLoading">
+                <span v-if="spocSyncLoading">正在同步...</span>
+                <span v-else>同步SPOC作业</span>
+            </button>
             <button type="button" class="save-btn" @click="saveBuaaId">保存</button>
           </div>
         <div class="form-hint">
-            提示：点击"同步课程表"按钮后，系统会自动处理登录流程。（密码不会存储，仅临时使用）
+            提示：点击"同步课程表"按钮后，系统会自动处理登录流程；spoc作业同步功能不稳定，可能存在提示成功但实际上没有获取到作业的情况。
         </div>
         <div v-if="syncStatus" class="sync-status" :class="syncStatus.includes('成功') ? 'success' : 'error'">
             {{ syncStatus }}
+        </div>
+        <div v-if="spocSyncStatus" class="sync-status" :class="spocSyncStatus.includes('成功') ? 'success' : 'error'">
+            {{ spocSyncStatus }}
         </div>
         </form>
       </section>
@@ -254,7 +261,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useUserStore, useSettingsStore, useCourseStore, useEntryStore } from '../store'
-import { authAPI, coursesAPI, settingsAPI, entriesAPI } from '../services/api'
+import { authAPI, coursesAPI, settingsAPI, entriesAPI, spocAPI } from '../services/api'
 import axios from 'axios'
 
 const userStore = useUserStore()
@@ -287,6 +294,10 @@ const apiKey = ref('')
 // 同步状态
 const syncLoading = ref(false)
 const syncStatus = ref('')
+
+// SPOC作业同步状态
+const spocSyncLoading = ref(false)
+const spocSyncStatus = ref('')
 
 // 头像相关
 const avatarUrl = ref(userStore.avatarUrl || localStorage.getItem('avatarUrl') || null)
@@ -509,6 +520,74 @@ const saveThemeAndColor = () => {
 // 保存精力周期设置
 const saveEnergyCycle = () => {
   settingsStore.updateEnergyCycle(energyCycle.value)
+}
+
+// 同步SPOC作业
+const syncSpocHomeworks = async () => {
+  try {
+    // 验证北航学号和密码
+    if (!buaaId.value.trim()) {
+      alert('请先输入北航学号')
+      return
+    }
+    
+    if (!buaaPassword.value.trim()) {
+      alert('请先输入北航密码')
+      return
+    }
+    
+    // 设置加载状态
+    spocSyncLoading.value = true
+    spocSyncStatus.value = '正在登录SPOC系统...'
+    
+    // 调用SPOC作业同步API
+    const syncResponse = await spocAPI.syncHomeworksWithSchedule({
+      username: buaaId.value,
+      password: buaaPassword.value,
+      user_id: userStore.userInfo?.id || 1 // 默认用户ID为1
+    })
+    
+    console.log('SPOC作业同步返回结果:', syncResponse)
+    
+    // 检查同步结果
+    if (syncResponse && syncResponse.status === 'success') {
+      // 更新同步状态
+      spocSyncStatus.value = 'SPOC作业同步成功！'
+    } else {
+      // 同步失败
+      const errorMessage = syncResponse && syncResponse.message ? syncResponse.message : '同步失败，请稍后重试'
+      spocSyncStatus.value = `同步失败: ${errorMessage}`
+      console.error('同步SPOC作业失败:', syncResponse)
+    }
+    
+    // 清空密码
+    buaaPassword.value = ''
+  } catch (error) {
+    // 处理不同类型的错误
+    if (error.response) {
+      // 服务器返回错误
+      const errorData = error.response.data
+      console.error('同步SPOC作业失败，服务器返回错误:', errorData)
+      if (error.response.status === 401) {
+        // 认证错误
+        spocSyncStatus.value = `SPOC登录失败: ${errorData.message || '请检查学号和密码'}`
+      } else {
+        // 其他服务器错误
+        spocSyncStatus.value = `同步失败: ${errorData.message || '服务器内部错误'}`
+      }
+    } else if (error.request) {
+      // 请求已发送但没有收到响应
+      console.error('同步SPOC作业失败，没有收到服务器响应:', error.request)
+      spocSyncStatus.value = '请求失败: 无法连接到服务器'
+    } else {
+      // 请求配置错误
+      console.error('同步SPOC作业失败，请求配置错误:', error.message)
+      spocSyncStatus.value = `请求失败: ${error.message}`
+    }
+  } finally {
+    // 关闭加载状态
+    spocSyncLoading.value = false
+  }
 }
 
 // 保存API_KEY

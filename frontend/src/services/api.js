@@ -128,4 +128,12 @@ export const remindersAPI = {
   getUpcomingReminders: (settings = {}, signal) => api.post('/reminders/upcoming', { settings }, { ...(signal ? { signal } : {}) })
 }
 
+// SPOC作业相关API
+export const spocAPI = {
+  // 同步SPOC作业
+  syncHomeworks: (data) => api.post('/spoc/sync-homeworks', data),
+  // 同步SPOC作业并自动安排时间
+  syncHomeworksWithSchedule: (data) => api.post('/spoc/sync-homeworks-with-schedule', data)
+}
+
 export default api

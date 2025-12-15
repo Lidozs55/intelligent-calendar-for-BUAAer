@@ -384,11 +384,8 @@ class BUAAAPIClient:
                 result = {
                     'need_login': False,
                     'data': {
-                        # 兼容旧的返回格式
-                        'data': course_result['data'],
-                        # 新的返回格式
-                        'courses': course_result['data'],
-                        'exams': []
+                        # 只返回兼容旧格式的data字段，避免前端直接使用courses和exams字段
+                        'data': course_result['data']
                     }
                 }
                 
@@ -516,6 +513,498 @@ class BUAAAPIClient:
             return session.cookies.get_dict()
         except requests.exceptions.RequestException as e:
             raise NetworkError(f'处理登录回调失败: {str(e)}')
+
+
+class SPOCAPIClient:
+    """
+    北航SPOC API客户端，用于调用北航SPOC系统的各种API
+    """
+    
+    def __init__(self):
+        # 导入必要的加密模块
+        from Crypto.Cipher import AES
+        from Crypto.Util.Padding import pad, unpad
+        import base64
+        import json
+        
+        # AES加密配置
+        self.AES_KEY = b'inco12345678ocni'  # 16 bytes
+        self.AES_IV = b'ocni12345678inco'   # 16 bytes
+        self.AES_MODE = AES.MODE_CBC
+        
+        # SPOC相关URL
+        self.spoc_base_url = 'https://spoc.buaa.edu.cn'
+        self.spoc_init_url = f'{self.spoc_base_url}/spocnewht/jxkj/queryJxkjData'
+        self.spoc_query_one_url = f'{self.spoc_base_url}/spocnewht/inco/ht/queryOne'
+        self.spoc_query_list_url = f'{self.spoc_base_url}/spocnewht/inco/ht/queryListByPage'
+        self.spoc_login_check_url = f'{self.spoc_base_url}/spocnew/common/zycskzy'
+        
+        # 保存导入的模块，方便后续方法使用
+        self.AES = AES
+        self.pad = pad
+        self.unpad = unpad
+        self.base64 = base64
+        self.json = json
+    
+    def aes_encrypt(self, data_dict: Dict[str, Any]) -> str:
+        """
+        AES-CBC加密数据字典，返回Base64字符串
+        :param data_dict: 要加密的数据字典
+        :return: 加密后的Base64字符串
+        """
+        # 将字典转换为JSON字符串
+        data_str = self.json.dumps(data_dict, separators=(',', ':'), ensure_ascii=False)
+        
+        # 创建AES加密器
+        cipher = self.AES.new(self.AES_KEY, self.AES_MODE, self.AES_IV)
+        
+        # 加密并填充
+        encrypted_data = cipher.encrypt(self.pad(data_str.encode('utf-8'), self.AES.block_size, style='pkcs7'))
+        
+        # 转换为Base64字符串
+        return self.base64.b64encode(encrypted_data).decode('utf-8')
+    
+    def aes_decrypt(self, base64_str: str) -> Dict[str, Any]:
+        """
+        AES-CBC解密Base64字符串，返回数据字典
+        :param base64_str: 加密后的Base64字符串
+        :return: 解密后的数据字典
+        """
+        # 处理空字符串情况
+        if not base64_str:
+            print("[LOG] 尝试解密空字符串，返回空字典")
+            return {}
+        
+        try:
+            # 解码Base64字符串
+            encrypted_data = self.base64.b64decode(base64_str)
+            
+            # 处理空的加密数据
+            if not encrypted_data:
+                print("[LOG] 尝试解密空的加密数据，返回空字典")
+                return {}
+            
+            # 创建AES解密器
+            cipher = self.AES.new(self.AES_KEY, self.AES_MODE, self.AES_IV)
+            
+            # 解密
+            decrypted_bytes = cipher.decrypt(encrypted_data)
+            
+            # 去除填充
+            try:
+                decrypted_data = self.unpad(decrypted_bytes, self.AES.block_size, style='pkcs7')
+            except ValueError as e:
+                print(f"[LOG] 去除填充失败，尝试直接使用解密数据: {str(e)}")
+                # 如果去除填充失败，尝试直接使用解密数据
+                decrypted_data = decrypted_bytes
+            
+            # 转换为JSON字典
+            return self.json.loads(decrypted_data.decode('utf-8'))
+        except Exception as e:
+            print(f"[LOG] AES解密失败: {str(e)}")
+            return {}
+    
+    def login_spoc(self, username: str, password: str) -> Dict[str, Any]:
+        """
+        SSO登录SPOC系统，完全按照新的流程实现
+        :param username: 北航学号
+        :param password: 北航密码
+        :return: 登录结果，包含session和初始化参数
+        """
+        # 创建会话
+        session = requests.Session()
+        
+        # 设置通用请求头
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+            'x-requested-with': 'XMLHttpRequest',
+            'rolecode': '01',  # 默认角色代码
+        })
+        
+        # 1. 检查是否已经登录
+        try:
+            print("[LOG] 检查SPOC登录状态")
+            login_check_response = session.get(self.spoc_login_check_url, timeout=10, allow_redirects=False)
+            
+            # 如果返回302，说明需要登录
+            if login_check_response.status_code == 302 or login_check_response.status_code == 404:
+                print("[LOG] 需要执行SSO登录")
+                
+                # 2. 执行SSO登录
+                # 构造SSO登录URL - 使用正确的service URL（jxkj2）
+                sso_login_url = f"https://sso.buaa.edu.cn/login?service=https%3A%2F%2Fspoc.buaa.edu.cn%2Fspocnewht%2FcasLogin"
+                print(f"[LOG] 访问SSO登录URL: {sso_login_url}")
+                
+                # 获取SSO登录页面
+                sso_page_response = session.get(sso_login_url, timeout=10)
+                sso_page_response.raise_for_status()
+                
+                # 提取execution参数
+                execution_pattern = r'<input\s+[^>]*?name=[\'\"]execution[\'\"]*?[^>]*?value=[\'\"]?([^\'\">\s]+)[\'\"]?'
+                execution_match = re.search(execution_pattern, sso_page_response.text, re.IGNORECASE | re.DOTALL)
+                
+                if not execution_match:
+                    print("[LOG] 无法提取execution参数，登录失败")
+                    raise AuthenticationError("无法提取SSO登录参数")
+                
+                execution = execution_match.group(1)
+                print(f"[LOG] 提取到execution参数: {execution}")
+                
+                # 提交登录表单，不允许重定向，以便获取包含ticket的302响应
+                login_data = {
+                    'username': username,
+                    'password': password,
+                    'execution': execution,
+                    '_eventId': 'submit',
+                    'geolocation': ''
+                }
+                
+                print(f"[LOG] 提交登录表单，用户: {username}")
+                
+                # 发送POST请求，允许自动重定向，简化流程
+                print(f"[LOG] 发送登录请求，允许自动重定向")
+                login_response = session.post(
+                    sso_login_url,
+                    data=login_data,
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                    allow_redirects=True,
+                    timeout=30
+                )
+                
+                print(f"[LOG] 登录请求完成，最终状态: {login_response.status_code}")
+                print(f"[LOG] 登录请求最终URL: {login_response.url}")
+                
+                # 即使返回404，也继续处理，因为浏览器访问时会有后续重定向
+                print("[LOG] 登录请求完成，开始后续处理")
+                # 打印当前session的cookies和headers，确保获取完整
+                print(f"[LOG] 当前session的cookies: {session.cookies.get_dict()}")
+                print(f"[LOG] 当前session的headers: {dict(session.headers)}")
+                
+                # 尝试从响应中提取token（无论状态码如何）
+                token_match = re.search(r'token\s*=\s*[\'"](Inco-[\w-]+)[\'"]', login_response.text)
+                if token_match:
+                    final_token = token_match.group(1)
+                    session.headers.update({'token': final_token})
+                    print(f"[LOG] 从响应中提取并设置Token: {final_token[:20]}...")
+                
+                # 从最终URL中提取SPOC token和refreshToken（关键步骤）
+                import urllib.parse
+                parsed_url = urllib.parse.urlsplit(login_response.url)
+                query_params = dict(urllib.parse.parse_qsl(parsed_url.query))
+                
+                spoc_token = query_params.get('token')
+                refresh_token = query_params.get('refreshToken')
+                
+                if spoc_token and refresh_token:
+                    # 将提取到的token和refreshToken都设置到session headers中（关键修正）
+                    session.headers.update({
+                        'token': spoc_token,
+                        'refreshToken': refresh_token
+                    })
+                    print(f"[LOG] ✅ 从URL中提取并设置SPOC Token: {spoc_token[:20]}...")
+                    print(f"[LOG] ✅ 从URL中提取并设置refreshToken: {refresh_token[:20]}...")
+                
+                print("[LOG] 开始手动追踪重定向链，捕获所有Cookie")
+                
+                # 手动追踪重定向链，确保捕获所有Set-Cookie
+                current_url = login_response.url
+                max_redirects = 10
+                redirect_count = 0
+                
+                while redirect_count < max_redirects:
+                    print(f"[LOG] 手动追踪重定向 #{redirect_count+1}: {current_url}")
+                    
+                    # 禁止自动重定向，手动处理
+                    redirect_response = session.get(
+                        current_url,
+                        allow_redirects=False,
+                        timeout=15
+                    )
+                    
+                    print(f"[LOG] 重定向响应状态码: {redirect_response.status_code}")
+                    
+                    # 检查是否有Set-Cookie头部
+                    if 'Set-Cookie' in redirect_response.headers:
+                        print(f"[LOG] ✅ 捕获到新的Cookie: {redirect_response.headers['Set-Cookie']}")
+                    
+                    # 检查状态码
+                    if redirect_response.status_code == 200:
+                        print(f"[LOG] ✅ 到达最终页面，重定向链追踪完成")
+                        break
+                    elif redirect_response.status_code in (301, 302, 307, 308):
+                        # 获取下一个重定向URL
+                        next_url = redirect_response.headers.get('Location')
+                        if not next_url:
+                            print(f"[LOG] ❌ 重定向链中断，无Location头部")
+                            break
+                        
+                        print(f"[LOG] -> 重定向到: {next_url}")
+                        current_url = next_url
+                        redirect_count += 1
+                    else:
+                        print(f"[LOG] ❌ 重定向链中断，未知状态码: {redirect_response.status_code}")
+                        break
+                
+                if redirect_count >= max_redirects:
+                    print(f"[LOG] ⚠️  重定向次数超过上限({max_redirects})，可能陷入循环")
+                
+                print("[LOG] SSO登录流程完成，继续后续操作")
+                print(f"[LOG] 当前session的headers: {dict(session.headers)}")
+                print(f"[LOG] 当前session的完整cookies: {session.cookies.get_dict()}")
+            else:
+                print("[LOG] 已经登录SPOC系统")
+        except Exception as e:
+            print(f"[LOG] SSO登录流程异常: {str(e)}")
+            raise AuthenticationError(f"SSO登录失败: {str(e)}")
+        
+        # 3. 获取初始化数据和initData_props
+        try:
+            print(f"[LOG] 获取初始化数据: {self.spoc_init_url}")
+            
+            # 先获取一下SPOC首页，确保session有效
+            print(f"[LOG] 访问SPOC首页: {self.spoc_base_url}/spocnew/jxkj2")
+            home_response = session.get(f"{self.spoc_base_url}/spocnew/jxkj2", timeout=10, allow_redirects=True)
+            print(f"[LOG] SPOC首页响应状态: {home_response.status_code}")
+            print(f"[LOG] SPOC首页最终URL: {home_response.url}")
+            
+            # 获取当前session的cookies
+            print(f"[LOG] 当前session的cookies: {session.cookies.get_dict()}")
+            
+            # 获取当前session的headers
+            print(f"[LOG] 当前session的headers: {dict(session.headers)}")
+            
+            # 尝试获取初始化数据
+            print(f"[LOG] 发送初始化数据请求")
+            init_response = session.get(
+                self.spoc_init_url,
+                headers={
+                    'x-requested-with': 'XMLHttpRequest',
+                    'Referer': home_response.url,
+                },
+                timeout=15
+            )
+            
+            print(f"[LOG] 初始化数据请求状态码: {init_response.status_code}")
+            print(f"[LOG] 初始化数据请求响应头: {dict(init_response.headers)}")
+            print(f"[LOG] 初始化数据请求响应内容: {init_response.text}")
+            
+            init_response.raise_for_status()
+            
+            try:
+                init_data = init_response.json()
+                print(f"[LOG] 初始化数据响应: {init_data}")
+            except ValueError as json_error:
+                print(f"[LOG] 解析初始化数据JSON失败: {str(json_error)}")
+                # 如果无法解析JSON，使用默认的initData_props
+                import time
+                init_data_props = f"{int(time.time()*1000)}d{time.time()}"
+                referer = f'{self.spoc_base_url}/spocnew/zycskzy?initData_props={init_data_props}'
+                return {
+                    'session': session,
+                    'init_data_props': init_data_props,
+                    'referer': referer
+                }
+            
+            # 检查响应是否包含token
+            if 'token' in init_data.get('content', {}):
+                token = init_data['content']['token']
+                session.headers.update({'token': token})
+                print(f"[LOG] 从响应中提取到token: {token}")
+            
+            # 提取initData_props
+            tzlj = init_data.get('content', {}).get('zy', [{}])[0].get('tzlj', '')
+            print(f"[LOG] tzlj字段: {tzlj}")
+            
+            if 'initData_props=' in tzlj:
+                init_data_props = tzlj.split('initData_props=')[1]
+                print(f"[LOG] 提取到initData_props: {init_data_props}")
+            else:
+                # 如果无法提取initData_props，尝试使用当前时间戳作为默认值
+                import time
+                init_data_props = f"{int(time.time()*1000)}d{time.time()}"
+                print(f"[LOG] 无法从tzlj中提取initData_props，使用默认值: {init_data_props}")
+                
+            # 构造完整的Referer - 使用正确的/jxkj2路径
+            referer = f'{self.spoc_base_url}/spocnew/jxkj2?initData_props={init_data_props}'
+            print(f"[LOG] 构造Referer: {referer}")
+            
+            return {
+                'session': session,
+                'init_data_props': init_data_props,
+                'referer': referer
+            }
+            
+        except Exception as e:
+            print(f"[LOG] 获取初始化数据失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # 如果获取初始化数据失败，尝试使用默认的initData_props继续执行
+            import time
+            init_data_props = f"{int(time.time()*1000)}d{time.time()}"
+            referer = f'{self.spoc_base_url}/spocnew/jxkj2?initData_props={init_data_props}'
+            return {
+                'session': session,
+                'init_data_props': init_data_props,
+                'referer': referer
+            }
+    
+    def get_sqlid(self, session: requests.Session, init_data_props: str, referer: str) -> str:
+        """
+        获取最终的sqlid
+        :param session: requests会话对象
+        :param init_data_props: initData_props参数
+        :param referer: Referer头部
+        :return: 最终的sqlid
+        """
+        try:
+            # 构造queryOne请求payload
+            query_one_payload = {
+                "sqlid": "402881b27e800d3d017e812d3345001c",
+                "id": init_data_props
+            }
+            
+            # 加密payload
+            encrypted_param = self.aes_encrypt(query_one_payload)
+            
+            # 发送请求
+            print(f"[LOG] 发送queryOne请求: {self.spoc_query_one_url}")
+            # 合并session.headers和请求特定headers
+            request_headers = dict(session.headers)
+            request_headers.update({
+                'Referer': referer,
+                'Content-Type': 'application/json',
+                'x-requested-with': 'XMLHttpRequest',
+            })
+            print(f"[LOG] queryOne请求headers: {request_headers}")
+            print(f"[LOG] queryOne请求cookies: {session.cookies.get_dict()}")
+            response = session.post(
+                self.spoc_query_one_url,
+                json={"param": encrypted_param},
+                headers=request_headers,
+                timeout=10
+            )
+            
+            response.raise_for_status()
+            response_data = response.json()
+            
+            print(f"[LOG] queryOne响应: {response_data}")
+            
+            # 检查响应数据
+            data_field = response_data.get('data', '')
+            if not data_field:
+                print(f"[LOG] queryOne响应的data字段为空: {data_field}")
+                raise ValueError("queryOne响应的data字段为空")
+            
+            # 解密响应数据
+            decrypted_data = self.aes_decrypt(data_field)
+            print(f"[LOG] 解密后queryOne数据: {decrypted_data}")
+            
+            # 提取sqlid
+            sqlid = decrypted_data.get('sqlId', '')
+            print(f"[LOG] 提取到sqlid: {sqlid}")
+            
+            if not sqlid:
+                # 如果无法从响应中提取sqlid，尝试使用默认值
+                print(f"[LOG] 无法从queryOne响应中提取sqlid，使用默认值")
+                # 默认的sqlid，可能需要根据实际情况调整
+                return "402881b27e800d3d017e812d3345001d"
+            
+            return sqlid
+            
+        except ValueError as e:
+            print(f"[LOG] 获取sqlid失败: {str(e)}")
+            # 如果获取sqlid失败，尝试使用默认值
+            return "402881b27e800d3d017e812d3345001d"
+        except Exception as e:
+            print(f"[LOG] 获取sqlid失败: {str(e)}")
+            raise NetworkError(f"获取SPOC sqlid失败: {str(e)}")
+    
+    def get_homework_list(self, session: requests.Session, sqlid: str, referer: str) -> Dict[str, Any]:
+        """
+        获取作业列表
+        :param session: requests会话对象
+        :param sqlid: 动态获取的sqlid
+        :param referer: Referer头部
+        :return: 作业列表数据
+        """
+        try:
+            # 构造queryListByPage请求payload
+            query_list_payload = {
+                "sqlid": sqlid,
+                "pageNum": 1,
+                "pageSize": 20,
+                "xnxq": None,
+                "kcid": None,
+                "tjzt": "1",  # 1表示未完成
+                "bt": None,
+                "yzwz": None
+            }
+            
+            # 加密payload
+            encrypted_param = self.aes_encrypt(query_list_payload)
+            
+            # 发送请求
+            print(f"[LOG] 发送queryListByPage请求: {self.spoc_query_list_url}")
+            # 合并session.headers和请求特定headers
+            request_headers = dict(session.headers)
+            request_headers.update({
+                'Referer': referer,
+                'Content-Type': 'application/json',
+                'x-requested-with': 'XMLHttpRequest',
+            })
+            print(f"[LOG] queryListByPage请求headers: {request_headers}")
+            print(f"[LOG] queryListByPage请求cookies: {session.cookies.get_dict()}")
+            response = session.post(
+                self.spoc_query_list_url,
+                json={"param": encrypted_param},
+                headers=request_headers,
+                timeout=10
+            )
+            
+            response.raise_for_status()
+            response_data = response.json()
+            
+            print(f"[LOG] queryListByPage响应: {response_data}")
+            
+            # 解密响应数据
+            decrypted_data = self.aes_decrypt(response_data.get('data', ''))
+            print(f"[LOG] 解密后作业数据: {decrypted_data}")
+            
+            return decrypted_data
+            
+        except Exception as e:
+            print(f"[LOG] 获取作业列表失败: {str(e)}")
+            raise NetworkError(f"获取SPOC作业列表失败: {str(e)}")
+    
+    def fetch_all_homeworks(self, username: str, password: str) -> Dict[str, Any]:
+        """
+        完整的作业获取流程
+        :param username: 北航学号
+        :param password: 北航密码
+        :return: 完整的作业列表
+        """
+        try:
+            # 1. 登录并获取初始化参数
+            login_result = self.login_spoc(username, password)
+            session = login_result['session']
+            init_data_props = login_result['init_data_props']
+            referer = login_result['referer']
+            
+            # 2. 获取sqlid
+            sqlid = self.get_sqlid(session, init_data_props, referer)
+            
+            # 3. 获取作业列表
+            homework_data = self.get_homework_list(session, sqlid, referer)
+            
+            print(f"[LOG] 作业获取成功，共{homework_data.get('total', 0)}条作业")
+            
+            return homework_data
+            
+        except Exception as e:
+            print(f"[LOG] 完整作业获取流程失败: {str(e)}")
+            raise BUAAAPIError(f"获取SPOC作业失败: {str(e)}")
 
 
 def parse_course_data(course_data, date=None):
@@ -698,3 +1187,4 @@ def parse_exam_data(exam_data):
 # 创建全局BUAA API客户端实例
 buaa_api_client = BUAAAPIClient()
 sso_login_handler = SSOLoginHandler()
+spoc_api_client = SPOCAPIClient()

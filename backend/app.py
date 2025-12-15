@@ -105,6 +105,7 @@ def create_app(config_class=Config):
     from routes.entries import entries_bp
     from routes.settings import settings_bp
     from routes.reminders import reminders_bp
+    from routes.spoc import spoc_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(courses_bp, url_prefix='/api/courses')
@@ -114,6 +115,7 @@ def create_app(config_class=Config):
     app.register_blueprint(schedule_bp, url_prefix='/api/schedule')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
     app.register_blueprint(reminders_bp, url_prefix='/api/reminders')
+    app.register_blueprint(spoc_bp, url_prefix='/api/spoc')
     
     # 确保instance目录存在
     instance_dir = os.path.join(app.root_path, 'instance')
