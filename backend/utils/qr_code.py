@@ -219,27 +219,22 @@ class QRCodeGenerator:
             # 首先检查cpolar.exe的可能路径
             cpolar_path = None
             
-            current_dir = pathlib.Path(__file__).parent.parent
+            # 获取主文件夹路径（backend的父目录）
+            main_dir = pathlib.Path(__file__).parent.parent.parent
             
-            # 明确指定优先使用./cpolar/cpolar.exe路径
+            # 明确指定使用主文件夹下面的/cpolar/cpolar.exe路径
             if platform.system() == 'Windows':
-                # Windows系统，优先使用./cpolar/cpolar.exe
-                preferred_path = os.path.join(current_dir, 'cpolar', 'cpolar.exe')
-                backup_path = os.path.join(current_dir, 'cpolar.exe')
+                # Windows系统，使用主文件夹下的cpolar/cpolar.exe
+                preferred_path = os.path.join(main_dir, 'cpolar', 'cpolar.exe')
             else:
-                # Linux/Mac系统，优先使用./cpolar/cpolar
-                preferred_path = os.path.join(current_dir, 'cpolar', 'cpolar')
-                backup_path = os.path.join(current_dir, 'cpolar')
+                # Linux/Mac系统，使用主文件夹下的cpolar/cpolar
+                preferred_path = os.path.join(main_dir, 'cpolar', 'cpolar')
             
-            # 先检查优先路径
+            # 只检查主文件夹下的cpolar路径
             if os.path.exists(preferred_path):
                 # 检查是否有执行权限
                 if platform.system() == 'Windows' or os.access(preferred_path, os.X_OK):
                     cpolar_path = preferred_path
-            # 如果优先路径不存在，检查备份路径
-            elif os.path.exists(backup_path):
-                if platform.system() == 'Windows' or os.access(backup_path, os.X_OK):
-                    cpolar_path = backup_path
             
             # 如果找到cpolar_path，使用它；否则尝试使用环境变量中的cpolar命令
             if cpolar_path:
