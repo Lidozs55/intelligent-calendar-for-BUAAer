@@ -6,36 +6,6 @@
     </div>
     
     <div class="settings-content">
-      <!-- 用户信息和头像设置 -->
-      <section class="settings-section">
-        <h3>用户信息</h3>
-        <div class="settings-form">
-          <div class="form-group">
-            <label>头像设置</label>
-            <div class="avatar-upload-container">
-              <div class="avatar-preview">
-                <img v-if="avatarUrl" :src="avatarUrl" alt="用户头像" class="avatar-img">
-                <div v-else class="avatar-placeholder">{{ getInitials() }}</div>
-              </div>
-              <div class="avatar-upload-options">
-                <input 
-                  type="file" 
-                  ref="avatarUpload" 
-                  accept="image/*" 
-                  @change="handleAvatarUpload" 
-                  style="display: none;"
-                />
-                <button type="button" class="save-btn" @click="$refs.avatarUpload.click()">
-                  上传头像
-                </button>
-                <button v-if="avatarUrl" type="button" class="cancel-btn" @click="removeAvatar">
-                  移除头像
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
       
       <!-- 北航账号绑定 -->
       <section class="settings-section">
@@ -299,8 +269,7 @@ const syncStatus = ref('')
 const spocSyncLoading = ref(false)
 const spocSyncStatus = ref('')
 
-// 头像相关
-const avatarUrl = ref(userStore.avatarUrl || localStorage.getItem('avatarUrl') || null)
+
 
 // 组件挂载时加载北航学号并自动同步课程表
 onMounted(async () => {
@@ -316,64 +285,13 @@ onMounted(async () => {
       }
     }
     
-    // 加载头像
-    const savedAvatar = localStorage.getItem('avatarUrl')
-    if (savedAvatar) {
-      avatarUrl.value = savedAvatar
-      userStore.updateAvatarUrl(savedAvatar)
-    }
+    
   } catch (error) {
     // console.error('加载北航学号失败:', error)
   }
 })
 
-// 获取用户姓名首字母作为头像占位符
-const getInitials = () => {
-  if (userStore.userInfo?.name) {
-    return userStore.userInfo.name.charAt(0).toUpperCase()
-  }
-  return 'U'
-}
 
-// 处理头像上传
-const handleAvatarUpload = (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-  
-  // 检查文件类型和大小
-  if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件')
-    return
-  }
-  
-  if (file.size > 5 * 1024 * 1024) { // 5MB
-    alert('图片大小不能超过5MB')
-    return
-  }
-  
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const dataUrl = e.target.result
-    avatarUrl.value = dataUrl
-    
-    // 保存到localStorage
-    localStorage.setItem('avatarUrl', dataUrl)
-    
-    // 更新store
-    userStore.updateAvatarUrl(dataUrl)
-    
-    // 清空文件输入
-    event.target.value = ''
-  }
-  reader.readAsDataURL(file)
-}
-
-// 移除头像
-const removeAvatar = () => {
-  avatarUrl.value = null
-  localStorage.removeItem('avatarUrl')
-  userStore.updateAvatarUrl(null)
-}
 
 // 保存北航学号
 const saveBuaaId = async () => {
@@ -936,46 +854,5 @@ const saveApiKey = async () => {
   border: 1px solid #f5c6cb;
 }
 
-/* 头像上传样式 */
-.avatar-upload-container {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  margin-top: 0.5rem;
-}
 
-.avatar-preview {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  background-color: var(--primary-color);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  font-weight: bold;
-}
-
-.avatar-upload-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
 </style>

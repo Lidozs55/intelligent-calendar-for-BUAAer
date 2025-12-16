@@ -26,8 +26,8 @@ class QRCodeGenerator:
         启动cpolar域名自动刷新线程
         """
         def refresh_cpolar_url():
-            # 线程启动后，先等待10秒，给cpolar服务足够的启动时间
-            wait_time = 10
+            # 线程启动后，先等待15秒，给cpolar服务足够的启动时间
+            wait_time = 15
             print(f"[QRCode] cpolar域名刷新线程已启动，等待{wait_time}秒后开始首次刷新...")
             time.sleep(wait_time)
             
